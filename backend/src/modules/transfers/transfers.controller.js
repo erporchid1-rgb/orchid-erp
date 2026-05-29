@@ -23,7 +23,9 @@ const create = async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return sendError(res, 'Validation failed', 400, errors.array());
-    const transfer = await transfersService.create(req.body, req.user.id);
+    const body = { ...req.body };
+    if (body.transferDate) body.transferDate = new Date(body.transferDate);
+    const transfer = await transfersService.create(body, req.user.id);
     return sendSuccess(res, transfer, 'Transfer completed', 201);
   } catch (err) {
     if (err.status) return sendError(res, err.message, err.status);

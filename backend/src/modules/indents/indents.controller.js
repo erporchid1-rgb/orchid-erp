@@ -20,7 +20,9 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const indent = await indentsService.create(req.body, req.user.id);
+    const body = { ...req.body };
+    if (body.requiredDate) body.requiredDate = new Date(body.requiredDate);
+    const indent = await indentsService.create(body, req.user.id);
     return sendSuccess(res, indent, 'Indent raised successfully', 201);
   } catch (err) {
     if (err.status) return sendError(res, err.message, err.status);

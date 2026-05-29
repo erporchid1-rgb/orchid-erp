@@ -23,7 +23,9 @@ const create = async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return sendError(res, 'Validation failed', 400, errors.array());
-    const issue = await issuesService.create(req.body, req.user.id);
+    const body = { ...req.body };
+    if (body.issueDate) body.issueDate = new Date(body.issueDate);
+    const issue = await issuesService.create(body, req.user.id);
     return sendSuccess(res, issue, 'Issue created', 201);
   } catch (err) {
     if (err.status) return sendError(res, err.message, err.status);

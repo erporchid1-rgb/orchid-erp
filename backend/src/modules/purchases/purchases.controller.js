@@ -24,7 +24,10 @@ const create = async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return sendError(res, 'Validation failed', 400, errors.array());
-    const purchase = await purchasesService.create(req.body, req.user.id);
+    const body = { ...req.body };
+    if (body.purchaseDate) body.purchaseDate = new Date(body.purchaseDate);
+    if (body.receivedDate) body.receivedDate = new Date(body.receivedDate);
+    const purchase = await purchasesService.create(body, req.user.id);
     return sendSuccess(res, purchase, 'Purchase created', 201);
   } catch (err) {
     if (err.status) return sendError(res, err.message, err.status);

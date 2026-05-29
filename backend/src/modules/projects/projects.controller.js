@@ -19,11 +19,18 @@ const getById = async (req, res, next) => {
   }
 };
 
+const parseDates = (body) => {
+  const data = { ...body };
+  if (data.startDate) data.startDate = new Date(data.startDate);
+  if (data.endDate) data.endDate = new Date(data.endDate);
+  return data;
+};
+
 const create = async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return sendError(res, 'Validation failed', 400, errors.array());
-    const project = await projectsService.create(req.body);
+    const project = await projectsService.create(parseDates(req.body));
     return sendSuccess(res, project, 'Project created', 201);
   } catch (err) {
     if (err.status) return sendError(res, err.message, err.status);
@@ -33,7 +40,7 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    const project = await projectsService.update(req.params.id, req.body);
+    const project = await projectsService.update(req.params.id, parseDates(req.body));
     return sendSuccess(res, project, 'Project updated');
   } catch (err) {
     if (err.status) return sendError(res, err.message, err.status);
