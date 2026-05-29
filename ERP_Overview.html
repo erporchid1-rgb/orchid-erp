@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Orchid Construction ERP – System Overview</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    font-size: 10.5pt;
+    color: #1e2a3a;
+    background: #fff;
+    line-height: 1.6;
+  }
+
+  /* ── COVER PAGE ─────────────────────────────── */
+  .cover {
+    height: 100vh;
+    background: linear-gradient(145deg, #0f2050 0%, #1a3675 55%, #214392 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 40px;
+    page-break-after: always;
+    position: relative;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 70% 30%, rgba(200,151,31,0.15) 0%, transparent 60%);
+  }
+  .cover-logo {
+    width: 100px;
+    height: 100px;
+    background: #fff;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 28px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+  }
+  .cover-logo img {
+    width: 90px;
+    height: 90px;
+    object-fit: contain;
+  }
+  .cover h1 {
+    font-size: 26pt;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.5px;
+    position: relative;
+    z-index: 1;
+    line-height: 1.25;
+  }
+  .cover .subtitle {
+    font-size: 13pt;
+    color: #c8971f;
+    font-weight: 500;
+    margin-top: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    position: relative;
+    z-index: 1;
+  }
+  .cover .tagline {
+    margin-top: 24px;
+    font-size: 10.5pt;
+    color: rgba(255,255,255,0.7);
+    max-width: 480px;
+    position: relative;
+    z-index: 1;
+  }
+  .cover-divider {
+    width: 60px;
+    height: 3px;
+    background: #c8971f;
+    border-radius: 2px;
+    margin: 24px auto;
+    position: relative;
+    z-index: 1;
+  }
+  .cover-meta {
+    position: absolute;
+    bottom: 36px;
+    font-size: 8.5pt;
+    color: rgba(255,255,255,0.4);
+    z-index: 1;
+  }
+
+  /* ── CONTENT PAGES ───────────────────────────── */
+  .page {
+    padding: 48px 52px;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+
+  /* section heading */
+  .section-label {
+    font-size: 7.5pt;
+    font-weight: 700;
+    color: #c8971f;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    margin-top: 36px;
+  }
+  .section-title {
+    font-size: 17pt;
+    font-weight: 700;
+    color: #1a3675;
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+  .section-desc {
+    font-size: 10pt;
+    color: #5a6677;
+    margin-bottom: 20px;
+    max-width: 560px;
+  }
+  .section-divider {
+    border: none;
+    border-top: 2px solid #e8edf5;
+    margin-bottom: 22px;
+  }
+
+  /* module cards grid */
+  .modules-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .module-card {
+    border: 1.5px solid #e2e8f2;
+    border-radius: 12px;
+    padding: 18px 20px;
+    background: #f8faff;
+    position: relative;
+    overflow: hidden;
+  }
+  .module-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--accent, #1a3675);
+    border-radius: 4px 0 0 4px;
+  }
+  .module-card.gold::before  { --accent: #c8971f; }
+  .module-card.green::before { --accent: #16a34a; }
+  .module-card.red::before   { --accent: #dc2626; }
+  .module-card.teal::before  { --accent: #0891b2; }
+  .module-card.purple::before{ --accent: #7c3aed; }
+  .module-card.orange::before{ --accent: #ea580c; }
+
+  .module-icon {
+    font-size: 20px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .module-name {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1e2a3a;
+    margin-bottom: 6px;
+  }
+  .module-desc {
+    font-size: 9pt;
+    color: #5a6677;
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .feature-list li {
+    font-size: 8.5pt;
+    color: #374151;
+    padding: 2.5px 0;
+    padding-left: 14px;
+    position: relative;
+  }
+  .feature-list li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: #16a34a;
+    font-weight: 700;
+    font-size: 8pt;
+  }
+
+  /* workflow steps */
+  .workflow {
+    display: flex;
+    gap: 0;
+    margin: 20px 0 28px;
+    flex-wrap: nowrap;
+  }
+  .step {
+    flex: 1;
+    text-align: center;
+    position: relative;
+  }
+  .step::after {
+    content: '→';
+    position: absolute;
+    right: -8px;
+    top: 14px;
+    color: #c8971f;
+    font-size: 14pt;
+    font-weight: 700;
+  }
+  .step:last-child::after { display: none; }
+  .step-num {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #1a3675;
+    color: #fff;
+    font-size: 9pt;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 8px;
+  }
+  .step-label {
+    font-size: 8pt;
+    font-weight: 600;
+    color: #1a3675;
+    line-height: 1.3;
+  }
+  .step-sub {
+    font-size: 7.5pt;
+    color: #6b7280;
+    margin-top: 3px;
+  }
+
+  /* roles table */
+  .roles-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 28px;
+    font-size: 9pt;
+  }
+  .roles-table th {
+    background: #1a3675;
+    color: #fff;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 8.5pt;
+    font-weight: 600;
+  }
+  .roles-table th:first-child { border-radius: 8px 0 0 0; }
+  .roles-table th:last-child  { border-radius: 0 8px 0 0; }
+  .roles-table td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #e8edf5;
+    vertical-align: top;
+    color: #374151;
+  }
+  .roles-table tr:nth-child(even) td { background: #f8faff; }
+  .roles-table .role-name {
+    font-weight: 700;
+    color: #1a3675;
+    white-space: nowrap;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 7.5pt;
+    font-weight: 600;
+    margin: 2px 2px 2px 0;
+  }
+  .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+  .badge-gold   { background: #fef3c7; color: #92400e; }
+  .badge-green  { background: #dcfce7; color: #166534; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+
+  /* info box */
+  .info-box {
+    background: #fffbeb;
+    border: 1.5px solid #fcd34d;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    font-size: 9pt;
+    color: #78350f;
+    line-height: 1.6;
+  }
+
+  /* two column list */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+    margin-bottom: 20px;
+  }
+  .two-col li {
+    font-size: 9pt;
+    color: #374151;
+    list-style: none;
+    padding-left: 16px;
+    position: relative;
+    line-height: 1.5;
+  }
+  .two-col li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: #c8971f;
+    font-size: 8pt;
+  }
+
+  /* footer */
+  .footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1.5px solid #e8edf5;
+    font-size: 8pt;
+    color: #9ca3af;
+    text-align: center;
+  }
+
+  /* page break helpers */
+  .page-break { page-break-before: always; }
+
+  @media print {
+    body { font-size: 10pt; }
+    .cover { height: 100vh; }
+    .page { padding: 40px 48px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     COVER PAGE
+══════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">
+    <img src="frontend/public/logo.png" alt="Orchid Logo" onerror="this.style.display='none';this.parentNode.innerHTML='<span style=\'font-size:36px\'>🏗️</span>'"/>
+  </div>
+  <h1>Orchid Construction<br>ERP System</h1>
+  <div class="subtitle">Inspiration of Life</div>
+  <div class="cover-divider"></div>
+  <p class="tagline">A complete digital system to manage materials, stock, procurement, and site operations — all in one place.</p>
+  <div class="cover-meta">System Overview &nbsp;•&nbsp; Confidential &nbsp;•&nbsp; Orchid Construction Pvt. Ltd.</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     PAGE — DASHBOARD SCREENSHOT
+══════════════════════════════════════════════ -->
+<div class="page" style="padding-top: 40px; padding-bottom: 40px;">
+  <div class="section-label">Live System Preview</div>
+  <div class="section-title">Admin Dashboard</div>
+  <p class="section-desc">Real-time overview — stock health, purchases, alerts, and project status at a glance.</p>
+  <hr class="section-divider"/>
+  <div style="border: 2px solid #e2e8f2; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 40px rgba(26,54,117,0.12);">
+    <img src="dashboard-screenshot.png" alt="Orchid ERP Admin Dashboard" style="width: 100%; display: block;" />
+  </div>
+  <div style="margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap;">
+    <div style="flex:1; min-width:180px; background:#f0f4ff; border-radius:10px; padding:12px 16px;">
+      <div style="font-size:8pt; color:#1a3675; font-weight:700; margin-bottom:4px;">📊 SUMMARY CARDS</div>
+      <div style="font-size:8.5pt; color:#374151;">Total Materials, Monthly Purchases, Low Stock Alerts, Active Projects, Pending Issues, Yearly Spend, Warehouses, Out of Stock</div>
+    </div>
+    <div style="flex:1; min-width:180px; background:#f0fdf4; border-radius:10px; padding:12px 16px;">
+      <div style="font-size:8pt; color:#166534; font-weight:700; margin-bottom:4px;">📈 PURCHASE TREND CHART</div>
+      <div style="font-size:8.5pt; color:#374151;">Last 6 months bar chart showing monthly purchase value — visual spend pattern</div>
+    </div>
+    <div style="flex:1; min-width:180px; background:#fffbeb; border-radius:10px; padding:12px 16px;">
+      <div style="font-size:8pt; color:#92400e; font-weight:700; margin-bottom:4px;">⚡ QUICK STATS</div>
+      <div style="font-size:8.5pt; color:#374151;">Active Projects, Total Suppliers, Pending Approvals, Low Stock Items — all with live counts</div>
+    </div>
+  </div>
+  <div class="footer">Orchid Construction ERP System &nbsp;•&nbsp; Internal Use Only</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     PAGE 1 — INTRODUCTION + MODULES OVERVIEW
+══════════════════════════════════════════════ -->
+<div class="page">
+
+  <div class="section-label">What is this system</div>
+  <div class="section-title">One System for the Entire Project</div>
+  <p class="section-desc">
+    Orchid ERP replaces spreadsheets, WhatsApp chats, and paper registers. Every material movement —
+    from indent request to delivery at site — is tracked digitally with a complete audit trail.
+  </p>
+  <hr class="section-divider"/>
+
+  <div class="section-label">Core Modules</div>
+  <div class="modules-grid">
+
+    <div class="module-card">
+      <span class="module-icon">📦</span>
+      <div class="module-name">Master Data</div>
+      <p class="module-desc">One-time setup of your projects, sites, materials, categories, and suppliers.</p>
+      <ul class="feature-list">
+        <li>Add unlimited projects &amp; sites</li>
+        <li>Material catalogue with units &amp; HSN codes</li>
+        <li>Supplier directory with GST &amp; contacts</li>
+        <li>Material categories for easy grouping</li>
+      </ul>
+    </div>
+
+    <div class="module-card gold">
+      <span class="module-icon">📝</span>
+      <div class="module-name">Indent / Material Requisition</div>
+      <p class="module-desc">Site Engineer raises a material request. Goes for approval before any purchase.</p>
+      <ul class="feature-list">
+        <li>Engineer raises indent with required date</li>
+        <li>Approval by Store Manager / Admin</li>
+        <li>Auto-generates indent number (IND-YYMM-XXXX)</li>
+        <li>Converts directly to Purchase Order</li>
+      </ul>
+    </div>
+
+    <div class="module-card green">
+      <span class="module-icon">🛒</span>
+      <div class="module-name">Purchase Orders</div>
+      <p class="module-desc">Full procurement workflow from draft to material received at site.</p>
+      <ul class="feature-list">
+        <li>Create PO from approved indent</li>
+        <li>Upload 3 supplier quotations</li>
+        <li>Management approval before order</li>
+        <li>Track delivery &amp; mark received</li>
+      </ul>
+    </div>
+
+    <div class="module-card teal">
+      <span class="module-icon">🏪</span>
+      <div class="module-name">Stock / Inventory</div>
+      <p class="module-desc">Real-time stock levels. Every movement is recorded — nothing is manually edited.</p>
+      <ul class="feature-list">
+        <li>Live stock per material, project &amp; site</li>
+        <li>Full movement ledger (who moved what, when)</li>
+        <li>Low stock &amp; out-of-stock alerts</li>
+        <li>Opening stock entry for existing stock</li>
+      </ul>
+    </div>
+
+    <div class="module-card orange">
+      <span class="module-icon">🚚</span>
+      <div class="module-name">Issues &amp; Transfers</div>
+      <p class="module-desc">Track material issued to work or moved between sites.</p>
+      <ul class="feature-list">
+        <li>Issue material to a site or work area</li>
+        <li>Transfer material from one site to another</li>
+        <li>Approval workflow for issues</li>
+        <li>Stock auto-adjusts on approval</li>
+      </ul>
+    </div>
+
+    <div class="module-card purple">
+      <span class="module-icon">📊</span>
+      <div class="module-name">Reports &amp; Dashboard</div>
+      <p class="module-desc">Ready reports to monitor stock health, purchases, and consumption.</p>
+      <ul class="feature-list">
+        <li>Dashboard with key numbers at a glance</li>
+        <li>Current stock report (filter by project/site)</li>
+        <li>Purchase history &amp; supplier analysis</li>
+        <li>Monthly consumption &amp; low stock alerts</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="footer">Orchid Construction ERP System &nbsp;•&nbsp; Internal Use Only</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     PAGE 2 — PROCUREMENT WORKFLOW
+══════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-label">How procurement works</div>
+  <div class="section-title">Step-by-Step Procurement Workflow</div>
+  <p class="section-desc">
+    From the moment a site needs material to the moment it is received — every step is tracked in the system.
+  </p>
+  <hr class="section-divider"/>
+
+  <div class="workflow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-label">Raise Indent</div>
+      <div class="step-sub">Site Engineer</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-label">Indent Approval</div>
+      <div class="step-sub">Store Manager / Admin</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-label">Create PO</div>
+      <div class="step-sub">Purchase Dept.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-label">Upload Quotations</div>
+      <div class="step-sub">3 Suppliers</div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-label">Mgmt. Approval</div>
+      <div class="step-sub">Admin</div>
+    </div>
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-label">Confirm PO</div>
+      <div class="step-sub">Purchase Dept.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">7</div>
+      <div class="step-label">Material Received</div>
+      <div class="step-sub">Site Incharge</div>
+    </div>
+    <div class="step">
+      <div class="step-num">8</div>
+      <div class="step-label">Stock Updated</div>
+      <div class="step-sub">Automatic</div>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <strong>Important:</strong> Stock increases <em>only</em> when the material is marked as <strong>Received</strong>.
+    The system never allows stock to be manually edited — every unit is backed by a ledger entry.
+  </div>
+
+  <div class="section-label">Purchase Order Statuses</div>
+  <div class="section-title" style="font-size:13pt; margin-bottom:14px;">What happens at each stage</div>
+
+  <table class="roles-table">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Meaning</th>
+        <th>Who Acts Next</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-blue">DRAFT</span></td>
+        <td>PO is being prepared, not yet submitted</td>
+        <td>Purchase Dept. — submit for approval</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-gold">PENDING APPROVAL</span></td>
+        <td>Submitted and waiting for management sign-off</td>
+        <td>Admin — approve or reject</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-green">APPROVED</span></td>
+        <td>Management approved, ready to order</td>
+        <td>Purchase Dept. — confirm the order</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-blue">CONFIRMED</span></td>
+        <td>Order placed with supplier</td>
+        <td>Site Incharge — mark when material arrives</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-green">RECEIVED</span></td>
+        <td>Material delivered &amp; stock updated</td>
+        <td>— Completed —</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-purple">REJECTED</span></td>
+        <td>Not approved — reason noted</td>
+        <td>Purchase Dept. — revise and resubmit</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-label">Indent Statuses</div>
+  <table class="roles-table">
+    <thead>
+      <tr><th>Status</th><th>Meaning</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-gold">PENDING</span></td>
+        <td>Raised by Site Engineer, awaiting approval</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-green">APPROVED</span></td>
+        <td>Approved — Purchase Dept. can create a PO</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-purple">REJECTED</span></td>
+        <td>Not required / duplicate — noted by approver</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-blue">PO CREATED</span></td>
+        <td>Purchase Order has been raised against this indent</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">Orchid Construction ERP System &nbsp;•&nbsp; Internal Use Only</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     PAGE 3 — USER ROLES + STOCK MODULE
+══════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-label">Access control</div>
+  <div class="section-title">User Roles &amp; Permissions</div>
+  <p class="section-desc">
+    Every user has a role. The system automatically shows only what that person is allowed to do.
+  </p>
+  <hr class="section-divider"/>
+
+  <table class="roles-table">
+    <thead>
+      <tr>
+        <th>Role</th>
+        <th>Who This Is</th>
+        <th>What They Can Do</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="role-name">Admin</td>
+        <td>Owner / Management Head</td>
+        <td>Full access — approve purchases, approve indents, manage users, opening stock, all reports</td>
+      </tr>
+      <tr>
+        <td class="role-name">Store Manager</td>
+        <td>Store / Purchase Incharge</td>
+        <td>Create &amp; manage purchases, approve indents, manage stock, upload quotations, transfers</td>
+      </tr>
+      <tr>
+        <td class="role-name">Site Engineer</td>
+        <td>Site Supervisor / Incharge</td>
+        <td>Raise indents, issue materials, mark PO as received, view stock at their site</td>
+      </tr>
+      <tr>
+        <td class="role-name">Accountant</td>
+        <td>Finance / Billing Team</td>
+        <td>View purchases, upload invoices &amp; quotations, view reports, read-only stock access</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-label">Stock &amp; Inventory Module</div>
+  <div class="section-title" style="font-size:13pt; margin-bottom:14px;">How Stock Works</div>
+
+  <div class="info-box">
+    Stock is <strong>never stored as a number</strong> that someone can change. Instead, every transaction
+    (purchase received, material issued, transfer) creates a <strong>ledger entry</strong>. The current stock
+    is always calculated from these entries — giving a 100% accurate audit trail.
+  </div>
+
+  <div class="modules-grid" style="margin-top:0;">
+    <div class="module-card green">
+      <span class="module-icon">📈</span>
+      <div class="module-name">Stock IN (increases stock)</div>
+      <ul class="feature-list">
+        <li>Purchase received at site</li>
+        <li>Material returned from site</li>
+        <li>Transfer received from another site</li>
+        <li>Opening stock entry (one-time setup)</li>
+      </ul>
+    </div>
+    <div class="module-card red">
+      <span class="module-icon">📉</span>
+      <div class="module-name">Stock OUT (reduces stock)</div>
+      <ul class="feature-list">
+        <li>Material issued for work</li>
+        <li>Damage / wastage recorded</li>
+        <li>Transfer sent to another site</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section-label">Stock Alerts</div>
+  <ul class="two-col">
+    <li><strong>Low Stock:</strong> Material falls below minimum quantity set for it</li>
+    <li><strong>Out of Stock:</strong> Quantity reaches zero</li>
+    <li><strong>Alert Banner:</strong> Warning shown on stock page with count</li>
+    <li><strong>Low Stock Report:</strong> Dedicated report listing all low items with shortage</li>
+  </ul>
+
+  <div class="section-label">Opening Stock Entry</div>
+  <p style="font-size:9.5pt; color:#374151; margin-bottom:16px;">
+    When you start using the system, you already have materials on hand. The <strong>Opening Stock Entry</strong>
+    page (Admin only) lets you enter the current quantity of each material once, at project or site level.
+    After this, all future movements are tracked automatically.
+  </p>
+
+  <div class="footer">Orchid Construction ERP System &nbsp;•&nbsp; Internal Use Only</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     PAGE 4 — REPORTS + NOTIFICATIONS + SUMMARY
+══════════════════════════════════════════════ -->
+<div class="page page-break">
+
+  <div class="section-label">Analytics &amp; Reports</div>
+  <div class="section-title">Available Reports</div>
+  <p class="section-desc">All reports can be filtered by date, project, site, or category.</p>
+  <hr class="section-divider"/>
+
+  <table class="roles-table">
+    <thead>
+      <tr><th>Report Name</th><th>What It Shows</th><th>Useful For</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Dashboard</strong></td>
+        <td>Total materials, stock value, low stock count, out-of-stock count, recent activity</td>
+        <td>Daily quick check</td>
+      </tr>
+      <tr>
+        <td><strong>Current Stock Report</strong></td>
+        <td>All materials with current quantity, value, and status — filterable by project/site/category</td>
+        <td>Physical verification</td>
+      </tr>
+      <tr>
+        <td><strong>Low Stock Report</strong></td>
+        <td>Materials below minimum level with exact shortage quantity</td>
+        <td>Reorder planning</td>
+      </tr>
+      <tr>
+        <td><strong>Purchase Report</strong></td>
+        <td>All purchases by supplier, date range, status — total spend analysis</td>
+        <td>Vendor payments &amp; audit</td>
+      </tr>
+      <tr>
+        <td><strong>Consumption Report</strong></td>
+        <td>Site-wise material consumption over a period</td>
+        <td>Cost tracking per project</td>
+      </tr>
+      <tr>
+        <td><strong>Monthly Usage Report</strong></td>
+        <td>Month-by-month material usage for the full year — chart view</td>
+        <td>Annual planning &amp; budget</td>
+      </tr>
+      <tr>
+        <td><strong>Stock Ledger</strong></td>
+        <td>Complete movement history for any single material — every IN and OUT entry</td>
+        <td>Discrepancy investigation</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-label">Notifications</div>
+  <div class="section-title" style="font-size:13pt; margin-bottom:14px;">Automatic Alerts</div>
+  <p style="font-size:9.5pt; color:#374151; margin-bottom:16px;">
+    The system generates in-app notifications so users know when action is needed — no manual follow-up required.
+  </p>
+  <ul class="two-col">
+    <li>Indent submitted — notify approver</li>
+    <li>Indent approved or rejected — notify requester</li>
+    <li>Purchase submitted for approval — notify Admin</li>
+    <li>Purchase approved or rejected — notify creator</li>
+    <li>Material received — stock team notified</li>
+    <li>Low stock level crossed — alert to Store Manager</li>
+  </ul>
+
+  <div class="section-label">Administration</div>
+  <div class="section-title" style="font-size:13pt; margin-bottom:14px;">User Management</div>
+  <ul class="two-col">
+    <li>Admin can create / activate / deactivate users</li>
+    <li>Set role for each user (Admin, Store, Engineer, Accountant)</li>
+    <li>Each user has their own login with password</li>
+    <li>Profile page — each user can update their own info</li>
+  </ul>
+
+  <hr class="section-divider" style="margin-top:24px;"/>
+
+  <div class="section-label">Quick Summary</div>
+  <div class="section-title" style="font-size:13pt; margin-bottom:14px;">What This System Replaces</div>
+
+  <table class="roles-table">
+    <thead>
+      <tr><th>Old Way</th><th>With Orchid ERP</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>WhatsApp / phone calls for material requests</td>
+        <td>Formal indent in the system with approval trail</td>
+      </tr>
+      <tr>
+        <td>Excel sheets for stock tracking</td>
+        <td>Real-time stock calculated from every transaction</td>
+      </tr>
+      <tr>
+        <td>Paper registers for material issue</td>
+        <td>Digital issue entry with project &amp; site tagging</td>
+      </tr>
+      <tr>
+        <td>Manual follow-up for PO approvals</td>
+        <td>Notification sent automatically to approver</td>
+      </tr>
+      <tr>
+        <td>Month-end stock count to find discrepancies</td>
+        <td>Full ledger available anytime — per material, per site</td>
+      </tr>
+      <tr>
+        <td>No visibility on which site consumed how much</td>
+        <td>Site-wise consumption report with date filters</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">Orchid Construction ERP System &nbsp;•&nbsp; Confidential &nbsp;•&nbsp; Orchid Construction Pvt. Ltd. &nbsp;•&nbsp; 2025</div>
+</div>
+
+</body>
+</html>

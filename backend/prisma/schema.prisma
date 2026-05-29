@@ -1,0 +1,412 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────
+// USERS & AUTH
+// ─────────────────────────────────────────
+
+model User {
+  id               String    @id @default(uuid())
+  name             String
+  email            String    @unique
+  mobile           String?
+  password         String
+  role             String    @default("SITE_ENGINEER")
+  status           String    @default("ACTIVE")
+  avatar           String?
+  lastLoginAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  purchases         Purchase[]      @relation("PurchaseCreatedBy")
+  purchasesApproved Purchase[]      @relation("PurchaseApprovedBy")
+  issuesCreated     StockIssue[]    @relation("IssueCreatedBy")
+  issuesApproved    StockIssue[]    @relation("IssueApprovedBy")
+  transfersCreated  StockTransfer[] @relation("TransferCreatedBy")
+  notifications     Notification[]
+  indentsRequested  Indent[]        @relation("IndentRequestedBy")
+  indentsApproved   Indent[]        @relation("IndentApprovedBy")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────────
+// PROJECTS & SITES
+// ─────────────────────────────────────────
+
+model Project {
+  id          String    @id @default(uuid())
+  projectName String
+  projectType String    @default("THREE_BHK")
+  location    String
+  startDate   DateTime
+  endDate     DateTime?
+  status      String    @default("PLANNING")
+  budget      Float?
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  sites          Site[]
+  purchases      Purchase[]
+  stockIssues    StockIssue[]
+  transfersFrom  StockTransfer[] @relation("TransferFromProject")
+  transfersTo    StockTransfer[] @relation("TransferToProject")
+  stockMovements StockMovement[]
+  indents        Indent[]
+
+  @@map("projects")
+}
+
+model Site {
+  id          String    @id @default(uuid())
+  siteName    String
+  projectId   String
+  description String?
+  address     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  project        Project         @relation(fields: [projectId], references: [id])
+  purchases      Purchase[]
+  stockIssues    StockIssue[]
+  stockMovements StockMovement[]
+  transfersFrom  StockTransfer[] @relation("TransferFromSite")
+  transfersTo    StockTransfer[] @relation("TransferToSite")
+  indents        Indent[]
+
+  @@map("sites")
+}
+
+// ─────────────────────────────────────────
+// MATERIAL MASTER
+// ─────────────────────────────────────────
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  materials   Material[]
+
+  @@map("categories")
+}
+
+model Material {
+  id           String    @id @default(uuid())
+  materialName String
+  categoryId   String
+  unit         String
+  minimumStock Float     @default(0)
+  description  String?
+  hsnCode      String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  category       Category            @relation(fields: [categoryId], references: [id])
+  purchaseItems  PurchaseItem[]
+  stockMovements StockMovement[]
+  issueItems     StockIssueItem[]
+  transferItems  StockTransferItem[]
+  indentItems    IndentItem[]
+
+  @@map("materials")
+}
+
+// ─────────────────────────────────────────
+// SUPPLIERS / VENDORS
+// ─────────────────────────────────────────
+
+model Supplier {
+  id           String    @id @default(uuid())
+  supplierName String
+  mobile       String
+  email        String?
+  address      String?
+  gstNumber    String?
+  panNumber    String?
+  bankAccount  String?
+  bankIfsc     String?
+  bankName     String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  purchases Purchase[]
+
+  @@map("suppliers")
+}
+
+// ─────────────────────────────────────────
+// INDENTS / REQUISITIONS
+// ─────────────────────────────────────────
+
+model Indent {
+  id             String      @id @default(uuid())
+  indentNumber   String      @unique
+  projectId      String?
+  siteId         String?
+  requestedById  String
+  requiredDate   DateTime
+  purpose        String?
+  remarks        String?
+  status         String      @default("PENDING")
+  approvedById   String?
+  approvalNotes  String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  project     Project?     @relation(fields: [projectId], references: [id])
+  site        Site?        @relation(fields: [siteId], references: [id])
+  requestedBy User         @relation("IndentRequestedBy", fields: [requestedById], references: [id])
+  approvedBy  User?        @relation("IndentApprovedBy", fields: [approvedById], references: [id])
+  items       IndentItem[]
+  purchases   Purchase[]
+
+  @@map("indents")
+}
+
+model IndentItem {
+  id           String   @id @default(uuid())
+  indentId     String
+  materialId   String
+  requestedQty Float
+  unit         String
+  remarks      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  indent   Indent   @relation(fields: [indentId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id])
+
+  @@map("indent_items")
+}
+
+// ─────────────────────────────────────────
+// PURCHASES
+// Statuses: DRAFT → PENDING_APPROVAL → APPROVED/REJECTED → CONFIRMED → RECEIVED
+// ─────────────────────────────────────────
+
+model Purchase {
+  id                String    @id @default(uuid())
+  billNo            String    @unique
+  supplierId        String
+  projectId         String?
+  siteId            String?
+  indentId          String?
+  purchaseDate      DateTime
+  receivedDate      DateTime?
+  transportCost     Float     @default(0)
+  discountAmount    Float     @default(0)
+  gstAmount         Float     @default(0)
+  subtotal          Float     @default(0)
+  totalAmount       Float     @default(0)
+  paidAmount        Float     @default(0)
+  invoiceFile       String?
+  quotation1File    String?
+  quotation2File    String?
+  quotation3File    String?
+  selectedQuotation Int?
+  approvedById      String?
+  approvalNotes     String?
+  notes             String?
+  status            String    @default("DRAFT")
+  orderedById       String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  supplier       Supplier       @relation(fields: [supplierId], references: [id])
+  project        Project?       @relation(fields: [projectId], references: [id])
+  site           Site?          @relation(fields: [siteId], references: [id])
+  indent         Indent?        @relation(fields: [indentId], references: [id])
+  orderedBy      User           @relation("PurchaseCreatedBy", fields: [orderedById], references: [id])
+  approvedBy     User?          @relation("PurchaseApprovedBy", fields: [approvedById], references: [id])
+  items          PurchaseItem[]
+  stockMovements StockMovement[]
+
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id         String   @id @default(uuid())
+  purchaseId String
+  materialId String
+  quantity   Float
+  unit       String
+  rate       Float
+  gstPercent Float    @default(0)
+  gstAmount  Float    @default(0)
+  amount     Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id])
+
+  @@map("purchase_items")
+}
+
+// ─────────────────────────────────────────
+// STOCK LEDGER
+// ─────────────────────────────────────────
+
+model StockMovement {
+  id            String    @id @default(uuid())
+  materialId    String
+  projectId     String?
+  siteId        String?
+  movementType  String
+  quantity      Float
+  balanceAfter  Float
+  unit          String
+  rate          Float?
+  referenceId   String?
+  referenceType String?
+  purchaseId    String?
+  issueId       String?
+  transferId    String?
+  remarks       String?
+  movementDate  DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+
+  material Material  @relation(fields: [materialId], references: [id])
+  project  Project?  @relation(fields: [projectId], references: [id])
+  site     Site?     @relation(fields: [siteId], references: [id])
+  purchase Purchase? @relation(fields: [purchaseId], references: [id])
+
+  @@index([materialId, siteId])
+  @@index([materialId, projectId])
+  @@index([movementDate])
+  @@map("stock_movements")
+}
+
+// ─────────────────────────────────────────
+// STOCK ISSUES
+// ─────────────────────────────────────────
+
+model StockIssue {
+  id           String    @id @default(uuid())
+  issueNumber  String    @unique
+  projectId    String?
+  siteId       String?
+  issueDate    DateTime
+  issuedTo     String
+  issuedById   String
+  approvedById String?
+  purpose      String?
+  status       String    @default("PENDING")
+  remarks      String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  project    Project?         @relation(fields: [projectId], references: [id])
+  site       Site?            @relation(fields: [siteId], references: [id])
+  issuedBy   User             @relation("IssueCreatedBy", fields: [issuedById], references: [id])
+  approvedBy User?            @relation("IssueApprovedBy", fields: [approvedById], references: [id])
+  items      StockIssueItem[]
+
+  @@map("stock_issues")
+}
+
+model StockIssueItem {
+  id         String   @id @default(uuid())
+  issueId    String
+  materialId String
+  quantity   Float
+  unit       String
+  remarks    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  issue    StockIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  material Material   @relation(fields: [materialId], references: [id])
+
+  @@map("stock_issue_items")
+}
+
+// ─────────────────────────────────────────
+// STOCK TRANSFERS
+// ─────────────────────────────────────────
+
+model StockTransfer {
+  id             String    @id @default(uuid())
+  transferNumber String    @unique
+  fromProjectId  String?
+  fromSiteId     String?
+  toProjectId    String?
+  toSiteId       String?
+  transferDate   DateTime
+  status         String    @default("PENDING")
+  createdById    String
+  reason         String?
+  remarks        String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  fromProject Project?            @relation("TransferFromProject", fields: [fromProjectId], references: [id])
+  fromSite    Site?               @relation("TransferFromSite", fields: [fromSiteId], references: [id])
+  toProject   Project?            @relation("TransferToProject", fields: [toProjectId], references: [id])
+  toSite      Site?               @relation("TransferToSite", fields: [toSiteId], references: [id])
+  createdBy   User                @relation("TransferCreatedBy", fields: [createdById], references: [id])
+  items       StockTransferItem[]
+
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id          String   @id @default(uuid())
+  transferId  String
+  materialId  String
+  quantity    Float
+  unit        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transfer StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  material Material      @relation(fields: [materialId], references: [id])
+
+  @@map("stock_transfer_items")
+}
+
+// ─────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String    @default("SYSTEM")
+  isRead    Boolean   @default(false)
+  data      String?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}

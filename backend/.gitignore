@@ -1,0 +1,7 @@
+node_modules/
+.env
+uploads/invoices/*
+!uploads/invoices/.gitkeep
+logs/
+dist/
+*.log
