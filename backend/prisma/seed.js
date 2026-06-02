@@ -64,6 +64,28 @@ async function main() {
     },
   });
 
+  // Construction Categories
+  await prisma.category.createMany({
+    data: [
+      { name: 'Cement & Concrete',       description: 'Cement, concrete mix, ready mix, admixtures' },
+      { name: 'Steel & Iron',            description: 'TMT bars, structural steel, MS plates, angles' },
+      { name: 'Bricks & Blocks',         description: 'Red bricks, fly ash bricks, AAC blocks, concrete blocks' },
+      { name: 'Sand & Aggregate',        description: 'River sand, M-sand, coarse aggregate, gravel, stone dust' },
+      { name: 'Tiles & Flooring',        description: 'Floor tiles, wall tiles, marble, granite, vitrified tiles' },
+      { name: 'Electrical',              description: 'Wires, cables, switches, boards, conduits, MCBs, fans, lights' },
+      { name: 'Plumbing & Sanitary',     description: 'Pipes, fittings, valves, taps, basins, toilets, water tanks' },
+      { name: 'Paint & Chemicals',       description: 'Primer, emulsion, enamel, putty, thinner, waterproof coating' },
+      { name: 'Wood & Timber',           description: 'Shuttering ply, flush doors, frames, battens, hardwood' },
+      { name: 'Glass & Aluminium',       description: 'Window glass, aluminium sections, UPVC, partitions' },
+      { name: 'Waterproofing',           description: 'Waterproof membrane, crystalline compound, bitumen, sealants' },
+      { name: 'Hardware & Fasteners',    description: 'Bolts, nuts, screws, nails, hinges, locks, anchors' },
+      { name: 'Safety Equipment',        description: 'Helmets, gloves, safety shoes, harness, nets, signage' },
+      { name: 'Tools & Equipment',       description: 'Hand tools, power tools, scaffolding, shuttering material' },
+      { name: 'Finishing Materials',     description: 'Gypsum, POP, false ceiling, skirting, grouts, adhesives' },
+    ],
+    skipDuplicates: true,
+  });
+
   console.log('✅ Seed completed successfully');
   console.log('\n👤 Default Users:');
   console.log('  Admin:      admin@orchidconstruction.com      / Admin@123');
