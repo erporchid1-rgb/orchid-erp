@@ -75,7 +75,6 @@ const create = async (data, userId) => {
       gstPercent: gstPct,
       gstAmount:  gstAmt,
       amount:     base + gstAmt,
-      remarks:    item.remarks || null,
     };
   });
 
