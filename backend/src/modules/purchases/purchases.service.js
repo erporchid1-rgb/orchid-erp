@@ -60,14 +60,28 @@ const create = async (data, userId) => {
   let subtotal = 0;
   let totalGst = 0;
   const processedItems = items.map((item) => {
-    const base = parseFloat(item.quantity) * parseFloat(item.rate);
-    const gstAmount = (base * (parseFloat(item.gstPercent) || 0)) / 100;
-    subtotal += base;
-    totalGst += gstAmount;
-    return { ...item, amount: base + gstAmount, gstAmount };
+    const qty    = parseFloat(item.quantity)   || 0;
+    const rate   = parseFloat(item.rate)       || 0;
+    const gstPct = parseFloat(item.gstPercent) || 0;
+    const base   = qty * rate;
+    const gstAmt = (base * gstPct) / 100;
+    subtotal  += base;
+    totalGst  += gstAmt;
+    return {
+      materialId: item.materialId,
+      unit:       item.unit,
+      quantity:   qty,
+      rate:       rate,
+      gstPercent: gstPct,
+      gstAmount:  gstAmt,
+      amount:     base + gstAmt,
+      remarks:    item.remarks || null,
+    };
   });
 
-  const totalAmount = subtotal + totalGst + parseFloat(purchaseData.transportCost || 0) - parseFloat(purchaseData.discountAmount || 0);
+  const totalAmount = subtotal + totalGst
+    + (parseFloat(purchaseData.transportCost)  || 0)
+    - (parseFloat(purchaseData.discountAmount) || 0);
 
   const purchase = await prisma.$transaction(async (tx) => {
     const newPurchase = await tx.purchase.create({
@@ -76,8 +90,11 @@ const create = async (data, userId) => {
         billNo,
         orderedById: userId,
         subtotal,
-        gstAmount: totalGst,
+        gstAmount:      totalGst,
         totalAmount,
+        transportCost:  parseFloat(purchaseData.transportCost)  || 0,
+        discountAmount: parseFloat(purchaseData.discountAmount) || 0,
+        paidAmount:     parseFloat(purchaseData.paidAmount)     || 0,
         items: { create: processedItems },
       },
       include: {
