@@ -21,7 +21,8 @@ const IndentDetailPage = () => {
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState(false)
 
-  const canApprove = ['ADMIN', 'STORE_MANAGER'].includes(user?.role)
+  const canApprove = ['ADMIN', 'STORE_MANAGER'].includes(user?.role) &&
+    indent?.requestedById !== user?.id
 
   const load = () => {
     indentsService.getById(id)

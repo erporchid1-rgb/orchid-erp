@@ -66,6 +66,7 @@ const approve = async (id, notes, userId) => {
   const indent = await prisma.indent.findUnique({ where: { id } });
   if (!indent) throw { status: 404, message: 'Indent not found' };
   if (indent.status !== 'PENDING') throw { status: 400, message: 'Only PENDING indents can be approved' };
+  if (indent.requestedById === userId) throw { status: 403, message: 'You cannot approve your own indent' };
   return prisma.indent.update({
     where: { id },
     data: { status: 'APPROVED', approvedById: userId, approvalNotes: notes || null },
@@ -76,6 +77,7 @@ const reject = async (id, notes, userId) => {
   const indent = await prisma.indent.findUnique({ where: { id } });
   if (!indent) throw { status: 404, message: 'Indent not found' };
   if (indent.status !== 'PENDING') throw { status: 400, message: 'Only PENDING indents can be rejected' };
+  if (indent.requestedById === userId) throw { status: 403, message: 'You cannot reject your own indent' };
   return prisma.indent.update({
     where: { id },
     data: { status: 'REJECTED', approvedById: userId, approvalNotes: notes || null },
