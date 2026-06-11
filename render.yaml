@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: orchid-erp-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate
+    startCommand: npx prisma db push && node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        value: file:./data/prod.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      - key: CORS_ORIGIN
+        value: https://orchiderp.netlify.app
+      - key: COMPANY_NAME
+        value: Orchid Infrastructure Developers Pvt. Ltd.
+      - key: COMPANY_GST
+        value: 06AAACB0370M1ZV
+      - key: UPLOAD_PATH
+        value: ./uploads
+      - key: MAX_FILE_SIZE
+        value: "10485760"
+    disk:
+      name: erp-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
