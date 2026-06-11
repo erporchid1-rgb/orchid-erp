@@ -4,14 +4,19 @@ const { generateCSNumber } = require('../../utils/generateNumber');
 
 const INCLUDE = {
   indent: {
-    select: { id: true, indentNumber: true, category: true, department: true, status: true },
+    select: {
+      id: true, indentNumber: true, category: true, department: true, status: true,
+      project: { select: { id: true, projectName: true, location: true } },
+      site:    { select: { id: true, siteName: true, address: true } },
+    },
   },
   createdBy:           { select: { id: true, name: true } },
   hodRecommendedBy:    { select: { id: true, name: true } },
   userVerifiedBy:      { select: { id: true, name: true } },
   presidentVerifiedBy: { select: { id: true, name: true } },
   quotations: {
-    include: { supplier: { select: { id: true, supplierName: true } } },
+    include: { supplier: { select: { id: true, supplierName: true, mobile: true, email: true, gstNumber: true } } },
+    orderBy: { createdAt: 'asc' },
   },
   items: {
     include: { material: { select: { id: true, materialName: true, unit: true } } },
@@ -122,9 +127,14 @@ const selectSupplier = async (csId, supplierId) => {
 
 // Purchase HOD recommends CS
 const hodRecommend = async (id, notes, userId) => {
-  const cs = await prisma.comparativeStatement.findUnique({ where: { id } });
+  const cs = await prisma.comparativeStatement.findUnique({
+    where: { id },
+    include: { quotations: true },
+  });
   if (!cs) throw { status: 404, message: 'Comparative Statement not found' };
   if (cs.status !== 'DRAFT') throw { status: 400, message: 'CS must be in DRAFT to recommend' };
+  if (!cs.selectedSupplierId) throw { status: 400, message: 'Supplier must be selected before recommending' };
+  if (!cs.quotations || cs.quotations.length === 0) throw { status: 400, message: 'At least one quotation must be added before recommending' };
   return prisma.comparativeStatement.update({
     where: { id },
     data: {
@@ -137,32 +147,57 @@ const hodRecommend = async (id, notes, userId) => {
   });
 };
 
-// User Dept verifies
-const userVerify = async (id, userId) => {
+// User Dept verifies (can change supplier + add notes)
+const userVerify = async (id, userId, notes, supplierId) => {
   const cs = await prisma.comparativeStatement.findUnique({ where: { id } });
   if (!cs) throw { status: 404, message: 'Comparative Statement not found' };
   if (cs.status !== 'HOD_RECOMMENDED') throw { status: 400, message: 'CS must be HOD_RECOMMENDED for user verification' };
+
+  // Allow supplier change before verifying
+  if (supplierId && supplierId !== cs.selectedSupplierId) {
+    await prisma.cSQuotation.updateMany({ where: { csId: id }, data: { isSelected: false } });
+    await prisma.cSQuotation.updateMany({ where: { csId: id, supplierId }, data: { isSelected: true } });
+  }
+  const effectiveSupplierId = supplierId || cs.selectedSupplierId;
+  if (!effectiveSupplierId) throw { status: 400, message: 'Supplier must be selected before verifying' };
+
   return prisma.comparativeStatement.update({
     where: { id },
-    data: { status: 'USER_VERIFIED', userVerifiedById: userId, userVerifiedAt: new Date() },
+    data: {
+      status: 'USER_VERIFIED',
+      userVerifiedById: userId,
+      userVerifiedAt: new Date(),
+      userNotes: notes || null,
+      selectedSupplierId: effectiveSupplierId,
+    },
     include: INCLUDE,
   });
 };
 
-// President-Projects gives final verification
-const presidentVerify = async (id, userId) => {
+// President-Projects gives final verification (can change supplier + add notes)
+const presidentVerify = async (id, userId, notes, supplierId) => {
   const cs = await prisma.comparativeStatement.findUnique({ where: { id } });
   if (!cs) throw { status: 404, message: 'Comparative Statement not found' };
   if (cs.status !== 'USER_VERIFIED') throw { status: 400, message: 'CS must be USER_VERIFIED for final verification' };
+
+  // Allow supplier change before final verify
+  if (supplierId && supplierId !== cs.selectedSupplierId) {
+    await prisma.cSQuotation.updateMany({ where: { csId: id }, data: { isSelected: false } });
+    await prisma.cSQuotation.updateMany({ where: { csId: id, supplierId }, data: { isSelected: true } });
+  }
+  const effectiveSupplierId = supplierId || cs.selectedSupplierId;
+  if (!effectiveSupplierId) throw { status: 400, message: 'Supplier must be selected before final verification' };
+
   await prisma.comparativeStatement.update({
     where: { id },
     data: {
       status: 'FINAL_VERIFIED',
       presidentVerifiedById: userId,
       presidentVerifiedAt: new Date(),
+      presidentNotes: notes || null,
+      selectedSupplierId: effectiveSupplierId,
     },
   });
-  // Advance indent to NFA stage
   await prisma.indent.update({ where: { id: cs.indentId }, data: { status: 'NFA' } });
   return prisma.comparativeStatement.findUnique({ where: { id }, include: INCLUDE });
 };

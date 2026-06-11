@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { cn as clsx } from '../../utils/cn'
 
 const PURCHASE_ROLES = ['ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'STORE_MANAGER', 'ACCOUNTANT', 'FINANCE']
+const CS_ROLES       = ['ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'USER_HOD', 'PRESIDENT_PROJECTS', 'FINANCE', 'ACCOUNTANT']
 const SENIOR_ROLES   = ['ADMIN', 'MD', 'EXE_DIRECTOR', 'PRESIDENT_PROJECTS', 'CFO', 'GM_PURCHASE',
                          'PURCHASE_HOD', 'USER_HOD', 'FINANCE']
 
@@ -20,7 +21,7 @@ const NAV_ITEMS = [
   { path: '/suppliers', icon: TruckIcon,        label: 'Suppliers' },
   // ─── Procurement Workflow ─────────────────────────────────────────────────
   { path: '/indents',      icon: ClipboardList, label: 'Indent / Requisition' },
-  { path: '/comparative',  icon: Scale,         label: 'Comparative Statement', roles: PURCHASE_ROLES },
+  { path: '/comparative',  icon: Scale,         label: 'Comparative Statement', roles: CS_ROLES },
   { path: '/nfa',          icon: FileCheck,     label: 'NFA — Note for Approval', roles: SENIOR_ROLES },
   { path: '/purchases',    icon: ShoppingCart,  label: 'Purchase Orders', roles: PURCHASE_ROLES },
   { path: '/mrn',          icon: Truck,         label: 'MRN — Receiving Note', roles: [...PURCHASE_ROLES, 'INCHARGE', 'SITE_ENGINEER'] },

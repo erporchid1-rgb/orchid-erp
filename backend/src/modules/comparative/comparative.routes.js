@@ -29,9 +29,9 @@ router.post('/:id/quotations/:quotationId/upload',
   ctrl.uploadQuotationFile
 );
 
-// Select winning supplier
+// Select winning supplier (Purchase HOD, User HOD, President can all change selection)
 router.patch('/:id/select-supplier',
-  requireRole('PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'),
+  requireRole('PURCHASE_HOD', 'GM_PURCHASE', 'USER_HOD', 'PRESIDENT_PROJECTS', 'ADMIN'),
   ctrl.selectSupplier
 );
 

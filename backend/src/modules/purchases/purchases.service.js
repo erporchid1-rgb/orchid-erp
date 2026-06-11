@@ -41,11 +41,12 @@ const getById = async (id) => {
     where: { id, deletedAt: null },
     include: {
       supplier: true,
-      project: { select: { id: true, projectName: true } },
-      site: { select: { id: true, siteName: true } },
+      project: { select: { id: true, projectName: true, location: true } },
+      site: { select: { id: true, siteName: true, address: true } },
       orderedBy: { select: { id: true, name: true, email: true } },
       approvedBy: { select: { id: true, name: true } },
-      indent: { select: { id: true, indentNumber: true, purpose: true } },
+      indent: { select: { id: true, indentNumber: true, purpose: true, category: true, department: true } },
+      nfa: { select: { id: true, nfaNumber: true } },
       items: { include: { material: { include: { category: true } } } },
     },
   });

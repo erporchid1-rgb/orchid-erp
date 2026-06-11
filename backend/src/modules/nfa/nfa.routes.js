@@ -30,9 +30,10 @@ router.patch('/:id/sign',
   ctrl.sign
 );
 
-// MD final decision  body: { action: 'approve'|'reject'|'hold', notes }
+// MD final decision  body: { action: 'approve'|'reject'|'hold', notes, approvalMode?, mdUserId? }
+// MD does it digitally; PURCHASE_HOD/GM_PURCHASE can record physical/call approval on MD's behalf
 router.patch('/:id/md-action',
-  requireRole('MD', 'ADMIN'),
+  requireRole('MD', 'ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE'),
   ctrl.mdAction
 );
 

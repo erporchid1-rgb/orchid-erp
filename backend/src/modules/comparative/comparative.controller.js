@@ -72,7 +72,7 @@ const hodRecommend = async (req, res, next) => {
 
 const userVerify = async (req, res, next) => {
   try {
-    const cs = await service.userVerify(req.params.id, req.user.id);
+    const cs = await service.userVerify(req.params.id, req.user.id, req.body.notes, req.body.supplierId);
     return sendSuccess(res, cs, 'CS verified by User Dept');
   } catch (err) {
     if (err.status) return sendError(res, err.message, err.status);
@@ -82,7 +82,7 @@ const userVerify = async (req, res, next) => {
 
 const presidentVerify = async (req, res, next) => {
   try {
-    const cs = await service.presidentVerify(req.params.id, req.user.id);
+    const cs = await service.presidentVerify(req.params.id, req.user.id, req.body.notes, req.body.supplierId);
     return sendSuccess(res, cs, 'CS finally verified by President-Projects');
   } catch (err) {
     if (err.status) return sendError(res, err.message, err.status);

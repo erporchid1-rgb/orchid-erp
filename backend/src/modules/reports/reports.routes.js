@@ -37,4 +37,8 @@ router.get('/monthly-usage', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/my-pending', async (req, res, next) => {
+  try { return sendSuccess(res, await reportsService.getMyPending(req.user.id, req.user.role)); } catch (err) { next(err); }
+});
+
 module.exports = router;

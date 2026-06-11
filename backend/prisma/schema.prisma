@@ -51,6 +51,7 @@ model User {
   nfaPresidentSigned NFA[] @relation("NFAPresidentSignedBy")
   nfaDirSigned       NFA[] @relation("NFADirSignedBy")
   nfaMdApproved      NFA[] @relation("NFAMdApprovedBy")
+  nfaMdRecorded      NFA[] @relation("NFAMdRecordedBy")
 
   mrnCreated          MRN[] @relation("MRNCreatedBy")
   mrnStoreVerified    MRN[] @relation("MRNStoreVerifiedBy")
@@ -290,9 +291,11 @@ model ComparativeStatement {
 
   userVerifiedById    String?
   userVerifiedAt      DateTime?
+  userNotes           String?
 
   presidentVerifiedById String?
   presidentVerifiedAt   DateTime?
+  presidentNotes        String?
 
   selectedSupplierId  String?
   createdAt           DateTime @default(now())
@@ -385,22 +388,30 @@ model NFA {
 
   gmSignedById        String?
   gmSignedAt          DateTime?
+  gmSignature         String?
 
   userSignedById      String?
   userSignedAt        DateTime?
+  userSignature       String?
 
   cfoSignedById       String?
   cfoSignedAt         DateTime?
+  cfoSignature        String?
 
   presidentSignedById String?
   presidentSignedAt   DateTime?
+  presidentSignature  String?
 
   dirSignedById       String?
   dirSignedAt         DateTime?
+  dirSignature        String?
 
   mdApprovedById      String?
   mdApprovedAt        DateTime?
   mdNotes             String?
+  mdSignature         String?
+  mdApprovalMode      String?   // DIGITAL | HARD_COPY | PHONE_CALL
+  mdRecordedById      String?   // purchase role who recorded physical/call approval
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -415,6 +426,7 @@ model NFA {
   presidentSignedBy  User?                 @relation("NFAPresidentSignedBy", fields: [presidentSignedById], references: [id])
   dirSignedBy        User?                 @relation("NFADirSignedBy", fields: [dirSignedById], references: [id])
   mdApprovedBy       User?                 @relation("NFAMdApprovedBy", fields: [mdApprovedById], references: [id])
+  mdRecordedBy       User?                 @relation("NFAMdRecordedBy", fields: [mdRecordedById], references: [id])
   purchases          Purchase[]
 
   @@map("nfas")
@@ -455,6 +467,12 @@ model Purchase {
   approvedById      String?
   approvalNotes     String?
   notes             String?
+  refInvoiceNo      String?
+  refInvoiceDate    DateTime?
+  attnPerson        String?
+  attnMobile        String?
+  contactPerson     String?
+  contactMobile     String?
   status            String    @default("DRAFT")
   orderedById       String
   createdAt         DateTime  @default(now())

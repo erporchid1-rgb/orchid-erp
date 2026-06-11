@@ -38,7 +38,10 @@ const updateUser = async (id, data) => {
     if (exists) throw { status: 409, message: 'Email already in use' };
   }
   const updateData = { ...data };
-  if (data.password) updateData.password = await bcrypt.hash(data.password, 12);
+  delete updateData.password;  // always strip; only re-add if explicitly provided
+  if (data.password && data.password.length >= 8) {
+    updateData.password = await bcrypt.hash(data.password, 12);
+  }
   return prisma.user.update({ where: { id }, data: updateData, select: { id: true, name: true, email: true, mobile: true, role: true, status: true } });
 };
 

@@ -40,7 +40,7 @@ const UsersPage = () => {
   const openCreate = () => { setEditItem(null); reset({ role: 'SITE_ENGINEER', status: 'ACTIVE' }); setShowModal(true) }
   const openEdit = (item) => {
     setEditItem(item)
-    Object.entries({ name: item.name, email: item.email, mobile: item.mobile, role: item.role, status: item.status }).forEach(([k, v]) => setValue(k, v))
+    reset({ name: item.name, email: item.email, mobile: item.mobile || '', role: item.role, status: item.status, password: '' })
     setShowModal(true)
   }
 
@@ -126,13 +126,20 @@ const UsersPage = () => {
               <option value="INACTIVE">Inactive</option>
             </select>
           </div>
-          {!editItem && (
-            <div className="col-span-2 form-group">
-              <label className="label">Password *</label>
-              <input {...register('password', { required: !editItem && 'Required', minLength: { value: 8, message: 'Min 8 chars' } })} type="password" className="input" />
-              {errors.password && <p className="error-text">{errors.password.message}</p>}
-            </div>
-          )}
+          <div className="col-span-2 form-group">
+            <label className="label">{editItem ? 'New Password (leave blank to keep current)' : 'Password *'}</label>
+            <input
+              {...register('password', {
+                required: !editItem ? 'Required' : false,
+                minLength: { value: 8, message: 'Min 8 characters' },
+                validate: v => (!editItem || !v || v.length >= 8) || 'Min 8 characters',
+              })}
+              type="password"
+              className="input"
+              placeholder={editItem ? 'Leave blank to keep current password' : 'Min 8 characters'}
+            />
+            {errors.password && <p className="error-text">{errors.password.message}</p>}
+          </div>
         </div>
       </Modal>
 

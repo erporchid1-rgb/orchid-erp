@@ -19,16 +19,17 @@ const INCLUDE = {
   presidentSignedBy: { select: { id: true, name: true } },
   dirSignedBy:       { select: { id: true, name: true } },
   mdApprovedBy:      { select: { id: true, name: true } },
+  mdRecordedBy:      { select: { id: true, name: true } },
   purchases:         { select: { id: true, billNo: true, status: true, poType: true } },
 };
 
 // NFA signing order
 const SIGN_FLOW = [
-  { status: 'DRAFT',             action: 'gm_sign',         nextStatus: 'GM_SIGNED',        field: 'gmSignedById',        dateField: 'gmSignedAt' },
-  { status: 'GM_SIGNED',         action: 'user_sign',        nextStatus: 'USER_SIGNED',       field: 'userSignedById',       dateField: 'userSignedAt' },
-  { status: 'USER_SIGNED',       action: 'cfo_sign',         nextStatus: 'CFO_SIGNED',        field: 'cfoSignedById',        dateField: 'cfoSignedAt' },
-  { status: 'CFO_SIGNED',        action: 'president_sign',   nextStatus: 'PRESIDENT_SIGNED',  field: 'presidentSignedById',  dateField: 'presidentSignedAt' },
-  { status: 'PRESIDENT_SIGNED',  action: 'dir_sign',         nextStatus: 'DIR_SIGNED',        field: 'dirSignedById',        dateField: 'dirSignedAt' },
+  { status: 'DRAFT',             action: 'gm_sign',         nextStatus: 'GM_SIGNED',        field: 'gmSignedById',        dateField: 'gmSignedAt',        sigField: 'gmSignature' },
+  { status: 'GM_SIGNED',         action: 'user_sign',        nextStatus: 'USER_SIGNED',       field: 'userSignedById',       dateField: 'userSignedAt',       sigField: 'userSignature' },
+  { status: 'USER_SIGNED',       action: 'cfo_sign',         nextStatus: 'CFO_SIGNED',        field: 'cfoSignedById',        dateField: 'cfoSignedAt',        sigField: 'cfoSignature' },
+  { status: 'CFO_SIGNED',        action: 'president_sign',   nextStatus: 'PRESIDENT_SIGNED',  field: 'presidentSignedById',  dateField: 'presidentSignedAt',  sigField: 'presidentSignature' },
+  { status: 'PRESIDENT_SIGNED',  action: 'dir_sign',         nextStatus: 'DIR_SIGNED',        field: 'dirSignedById',        dateField: 'dirSignedAt',        sigField: 'dirSignature' },
 ];
 
 const getAll = async (query) => {
@@ -87,7 +88,7 @@ const uploadDraftPO = async (id, fileName) => {
 };
 
 // Generic sign action by any signatory
-const sign = async (id, action, userId) => {
+const sign = async (id, action, userId, signature) => {
   const nfa = await prisma.nFA.findUnique({ where: { id } });
   if (!nfa) throw { status: 404, message: 'NFA not found' };
 
@@ -103,19 +104,25 @@ const sign = async (id, action, userId) => {
       status: step.nextStatus,
       [step.field]:     userId,
       [step.dateField]: new Date(),
+      ...(signature && { [step.sigField]: signature }),
     },
     include: INCLUDE,
   });
 };
 
 // MD final approval / rejection / hold
-const mdAction = async (id, action, notes, userId) => {
+// approvalMode: 'DIGITAL' (MD himself) | 'HARD_COPY' (physical sign) | 'PHONE_CALL'
+// recordedByRole: if purchase role is recording on behalf of MD, pass their userId as recordedById
+const mdAction = async (id, action, notes, userId, signature, approvalMode, recordedById) => {
   const nfa = await prisma.nFA.findUnique({ where: { id }, include: { indent: true } });
   if (!nfa) throw { status: 404, message: 'NFA not found' };
   if (nfa.status !== 'DIR_SIGNED') throw { status: 400, message: 'NFA must be DIR_SIGNED for MD action' };
 
   const statusMap = { approve: 'MD_APPROVED', reject: 'MD_REJECTED', hold: 'MD_HOLD' };
   if (!statusMap[action]) throw { status: 400, message: 'Invalid action' };
+
+  // When purchase role records on behalf of MD, notes are mandatory
+  if (recordedById && !notes) throw { status: 400, message: 'Notes are required when recording MD decision on their behalf' };
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.nFA.update({
@@ -125,6 +132,9 @@ const mdAction = async (id, action, notes, userId) => {
         mdApprovedById: userId,
         mdApprovedAt: new Date(),
         mdNotes: notes || null,
+        mdApprovalMode: approvalMode || 'DIGITAL',
+        ...(recordedById && { mdRecordedById: recordedById }),
+        ...(signature && { mdSignature: signature }),
       },
       include: INCLUDE,
     });

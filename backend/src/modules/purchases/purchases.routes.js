@@ -20,13 +20,13 @@ const itemValidation = [
 router.get('/', purchasesController.getAll);
 router.get('/:id', purchasesController.getById);
 router.get('/:id/pdf', purchasesController.generatePDF);
-router.post('/', requireRole('ADMIN', 'STORE_MANAGER', 'ACCOUNTANT'), itemValidation, purchasesController.create);
-router.patch('/:id/status', purchasesController.updateStatus);  // role-checked in controller
-router.patch('/:id/submit', requireRole('ADMIN', 'STORE_MANAGER', 'ACCOUNTANT'), purchasesController.submitForApproval);
-router.patch('/:id/approve', requireRole('ADMIN'), purchasesController.approvePurchase);
-router.patch('/:id/reject', requireRole('ADMIN'), purchasesController.rejectPurchase);
-router.post('/:id/quotation/:num', requireRole('ADMIN', 'STORE_MANAGER', 'ACCOUNTANT'), upload.single('file'), purchasesController.uploadQuotation);
-router.post('/:id/invoice', requireRole('ADMIN', 'STORE_MANAGER', 'ACCOUNTANT'), upload.single('invoice'), purchasesController.uploadInvoice);
-router.delete('/:id', requireRole('ADMIN', 'STORE_MANAGER'), purchasesController.remove);
+router.post('/', requireRole('ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'STORE_MANAGER', 'ACCOUNTANT'), itemValidation, purchasesController.create);
+router.patch('/:id/status', purchasesController.updateStatus);
+router.patch('/:id/submit', requireRole('ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'STORE_MANAGER', 'ACCOUNTANT'), purchasesController.submitForApproval);
+router.patch('/:id/approve', requireRole('ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'MD', 'EXE_DIRECTOR'), purchasesController.approvePurchase);
+router.patch('/:id/reject',  requireRole('ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'MD', 'EXE_DIRECTOR'), purchasesController.rejectPurchase);
+router.post('/:id/quotation/:num', requireRole('ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'STORE_MANAGER', 'ACCOUNTANT'), upload.single('file'), purchasesController.uploadQuotation);
+router.post('/:id/invoice',        requireRole('ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'STORE_MANAGER', 'ACCOUNTANT'), upload.single('invoice'), purchasesController.uploadInvoice);
+router.delete('/:id', requireRole('ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE'), purchasesController.remove);
 
 module.exports = router;

@@ -2,8 +2,126 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { nfaService } from '../../services'
 import { useAuth } from '../../context/AuthContext'
-import { ArrowLeft, Printer, PenLine, CheckCircle, XCircle, PauseCircle, FileCheck } from 'lucide-react'
+import { ArrowLeft, Printer, PenLine, CheckCircle, XCircle, PauseCircle, FileCheck, Phone, FileSignature, MessageSquare } from 'lucide-react'
 import toast from 'react-hot-toast'
+import SignatureModal from '../../components/ui/SignatureModal'
+
+const APPROVAL_MODE_LABEL = {
+  DIGITAL:    'Digital (MD signed on system)',
+  HARD_COPY:  'Hard Copy (Physical signature)',
+  PHONE_CALL: 'Phone / Call approval',
+}
+
+const APPROVAL_MODE_ICON = {
+  DIGITAL:    FileSignature,
+  HARD_COPY:  FileCheck,
+  PHONE_CALL: Phone,
+}
+
+// Inline panel for Purchase HOD to record MD decision without digital signature
+const RecordMdPanel = ({ onSubmit, loading }) => {
+  const [action,       setAction]       = useState('approve')
+  const [approvalMode, setApprovalMode] = useState('HARD_COPY')
+  const [notes,        setNotes]        = useState('')
+
+  const modeOptions = [
+    { value: 'HARD_COPY',  label: 'Hard Copy', desc: 'MD signed physical document' },
+    { value: 'PHONE_CALL', label: 'Phone / Call', desc: 'MD approved verbally over phone' },
+  ]
+
+  const actionOptions = [
+    { value: 'approve', label: 'Approved',  color: 'bg-green-600 hover:bg-green-700', icon: CheckCircle },
+    { value: 'reject',  label: 'Rejected',  color: 'bg-red-600 hover:bg-red-700',     icon: XCircle },
+    { value: 'hold',    label: 'On Hold',   color: 'bg-orange-500 hover:bg-orange-600', icon: PauseCircle },
+  ]
+
+  const handleSubmit = () => {
+    if (!notes.trim()) { toast.error('Notes are required — describe how MD gave approval'); return }
+    onSubmit(action, notes.trim(), approvalMode)
+  }
+
+  return (
+    <div className="card mb-5 border-2 border-amber-200 bg-amber-50">
+      <div className="card-body">
+        <div className="flex items-center gap-2 mb-4">
+          <MessageSquare size={16} className="text-amber-700" />
+          <p className="font-bold text-amber-800 text-sm">Record MD Decision</p>
+          <span className="text-xs text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+            MD approved outside system — record it here
+          </span>
+        </div>
+
+        {/* Action */}
+        <div className="mb-3">
+          <p className="text-xs font-semibold text-gray-600 mb-2">MD Decision</p>
+          <div className="flex gap-2">
+            {actionOptions.map(opt => {
+              const Icon = opt.icon
+              return (
+                <button key={opt.value}
+                  onClick={() => setAction(opt.value)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                    ${action === opt.value
+                      ? `${opt.color} text-white ring-2 ring-offset-1 ring-current`
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <Icon size={14} /> {opt.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Approval mode */}
+        <div className="mb-3">
+          <p className="text-xs font-semibold text-gray-600 mb-2">How did MD approve?</p>
+          <div className="flex gap-2">
+            {modeOptions.map(opt => (
+              <button key={opt.value}
+                onClick={() => setApprovalMode(opt.value)}
+                className={`flex-1 py-2 px-3 rounded-lg border text-sm transition-colors text-left
+                  ${approvalMode === opt.value
+                    ? 'border-primary-500 bg-primary-50 text-primary-700 font-medium'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+              >
+                <p className="font-medium">{opt.label}</p>
+                <p className="text-xs opacity-70">{opt.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div className="mb-4">
+          <p className="text-xs font-semibold text-gray-600 mb-1">
+            Notes <span className="text-red-500">*</span>
+            <span className="text-gray-400 font-normal ml-1">
+              (e.g., "MD approved on call on 11-Jun-2026 at 3pm", "Hard copy signed and filed")
+            </span>
+          </p>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            rows={2}
+            placeholder="Describe how MD gave approval or rejection..."
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none"
+          />
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading || !notes.trim()}
+          className="btn-primary flex items-center gap-2 disabled:opacity-40"
+        >
+          {loading
+            ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            : <CheckCircle size={14} />}
+          Record MD {action === 'approve' ? 'Approval' : action === 'reject' ? 'Rejection' : 'Hold'}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 const STATUS_BADGE = {
   DRAFT:            'badge badge-gray',
@@ -18,15 +136,15 @@ const STATUS_BADGE = {
 }
 
 const STATUS_LABEL = {
-  DRAFT: 'Draft',
-  GM_SIGNED: 'GM Signed',
-  USER_SIGNED: 'User Dept Signed',
-  CFO_SIGNED: 'CFO Signed',
+  DRAFT:            'Draft',
+  GM_SIGNED:        'GM Signed',
+  USER_SIGNED:      'User Dept Signed',
+  CFO_SIGNED:       'CFO Signed',
   PRESIDENT_SIGNED: 'President Signed',
-  DIR_SIGNED: 'Exe. Director Signed',
-  MD_APPROVED: 'MD Approved',
-  MD_REJECTED: 'MD Rejected',
-  MD_HOLD: 'MD Hold',
+  DIR_SIGNED:       'Exe. Director Signed',
+  MD_APPROVED:      'MD Approved',
+  MD_REJECTED:      'MD Rejected',
+  MD_HOLD:          'MD Hold',
 }
 
 const fmt = (date) => {
@@ -40,17 +158,6 @@ const fmtAmt = (val) =>
     ? new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val)
     : '0.00'
 
-const Row = ({ label, value, bold }) => (
-  <tr>
-    <td style={{ padding: '6px 14px', fontWeight: '600', borderRight: '1px solid #ccc', width: '220px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-      {label}
-    </td>
-    <td style={{ padding: '6px 14px', fontWeight: bold ? 'bold' : 'normal' }}>
-      {value || '—'}
-    </td>
-  </tr>
-)
-
 const NFADetailPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -59,8 +166,11 @@ const NFADetailPage = () => {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
 
-  const isMD         = ['MD', 'ADMIN'].includes(user?.role)
-  const isPurchaseHOD = ['PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'].includes(user?.role)
+  // Signature modal state
+  const [sigModal, setSigModal] = useState({ open: false, title: '', onConfirm: null })
+
+  const isMD          = ['MD', 'ADMIN'].includes(user?.role)
+  const isPurchaseHOD = ['PURCHASE_HOD', 'GM_PURCHASE'].includes(user?.role)
 
   const signAction = {
     GM_PURCHASE:        'gm_sign',
@@ -69,6 +179,14 @@ const NFADetailPage = () => {
     PRESIDENT_PROJECTS: 'president_sign',
     EXE_DIRECTOR:       'dir_sign',
   }[user?.role]
+
+  const signLabel = {
+    gm_sign:        'GM — Purchase',
+    user_sign:      'User Department',
+    cfo_sign:       'CFO',
+    president_sign: 'President — Projects',
+    dir_sign:       'Executive Director',
+  }[signAction] || 'Sign'
 
   const load = async () => {
     setLoading(true)
@@ -100,6 +218,40 @@ const NFADetailPage = () => {
     finally { setActionLoading(false) }
   }
 
+  const handleRecordMd = (action, notes, approvalMode) => {
+    doAction(
+      () => nfaService.mdRecordAction(id, action, notes, approvalMode),
+      `MD ${action === 'approve' ? 'approval' : action === 'reject' ? 'rejection' : 'hold'} recorded`
+    )
+  }
+
+  const openSignModal = () => {
+    setSigModal({
+      open: true,
+      title: `Sign as ${signLabel}`,
+      onConfirm: (sigData) => {
+        setSigModal(s => ({ ...s, open: false }))
+        doAction(() => nfaService.sign(id, signAction, sigData), 'NFA signed successfully')
+      },
+    })
+  }
+
+  const openMdModal = (action) => {
+    const notes = action !== 'approve' ? window.prompt(`${action === 'reject' ? 'Rejection' : 'Hold'} reason:`) : ''
+    if (action !== 'approve' && notes === null) return
+    setSigModal({
+      open: true,
+      title: `MD Signature — ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+      onConfirm: (sigData) => {
+        setSigModal(s => ({ ...s, open: false }))
+        doAction(
+          () => nfaService.mdAction(id, action, notes, sigData),
+          `NFA ${action}d by MD`
+        )
+      },
+    })
+  }
+
   if (loading) return (
     <div className="flex justify-center py-20">
       <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
@@ -114,23 +266,31 @@ const NFADetailPage = () => {
   ].filter(Boolean).join(', ')
 
   const attachment = [
-    nfa.quotationDate    ? `Quotation Dated ${fmt(nfa.quotationDate)}`   : '',
-    nfa.comparativeDate  ? `Comparative dated ${fmt(nfa.comparativeDate)}` : '',
+    nfa.quotationDate   ? `Quotation Dated ${fmt(nfa.quotationDate)}`   : '',
+    nfa.comparativeDate ? `Comparative dated ${fmt(nfa.comparativeDate)}` : '',
   ].filter(Boolean).join(', ')
 
-  // Signing step checklist for the screen banner
+  // Steps for signing progress timeline
   const STEPS = [
-    { label: 'GM — Purchase',       who: nfa.gmSignedBy,        at: nfa.gmSignedAt },
-    { label: 'User Department',     who: nfa.userSignedBy,      at: nfa.userSignedAt },
-    { label: 'CFO',                 who: nfa.cfoSignedBy,       at: nfa.cfoSignedAt },
-    { label: 'President — Projects', who: nfa.presidentSignedBy, at: nfa.presidentSignedAt },
-    { label: 'Exe. Director',       who: nfa.dirSignedBy,       at: nfa.dirSignedAt },
-    { label: 'MD Approval',         who: nfa.mdApprovedBy,      at: nfa.mdApprovedAt, isMdStep: true },
+    { label: 'GM — Purchase',       who: nfa.gmSignedBy,        at: nfa.gmSignedAt,        sig: nfa.gmSignature },
+    { label: 'User Department',     who: nfa.userSignedBy,      at: nfa.userSignedAt,      sig: nfa.userSignature },
+    { label: 'CFO',                 who: nfa.cfoSignedBy,       at: nfa.cfoSignedAt,        sig: nfa.cfoSignature },
+    { label: 'President — Projects', who: nfa.presidentSignedBy, at: nfa.presidentSignedAt, sig: nfa.presidentSignature },
+    { label: 'Exe. Director',       who: nfa.dirSignedBy,       at: nfa.dirSignedAt,        sig: nfa.dirSignature },
+    { label: 'MD Approval',         who: nfa.mdApprovedBy,      at: nfa.mdApprovedAt,       sig: nfa.mdSignature },
   ]
 
-  const sigBox = (name, role, date) => (
-    <div style={{ minHeight: '80px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-      <div style={{ borderTop: '1px solid #333', paddingTop: '6px', marginTop: '6px' }}>
+  // Print signature box — shows image if available, else blank line
+  const sigBox = (name, role, date, sigImg) => (
+    <div style={{ minHeight: '90px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+      {sigImg && (
+        <img
+          src={sigImg}
+          alt={`${role} signature`}
+          style={{ maxHeight: '50px', maxWidth: '160px', objectFit: 'contain', marginBottom: '4px' }}
+        />
+      )}
+      <div style={{ borderTop: '1px solid #333', paddingTop: '5px' }}>
         <div style={{ fontWeight: '600', fontSize: '13px' }}>{name || '................................'}</div>
         <div style={{ fontSize: '12px', color: '#555' }}>{role}</div>
         {date && <div style={{ fontSize: '11px', color: '#777', marginTop: '2px' }}>{fmt(date)}</div>}
@@ -140,7 +300,6 @@ const NFADetailPage = () => {
 
   return (
     <div>
-      {/* Print CSS — hides everything except the memo */}
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -148,6 +307,15 @@ const NFADetailPage = () => {
           #nfa-print-area { position: fixed; left: 0; top: 0; width: 100%; padding: 16px; }
         }
       `}</style>
+
+      {/* Signature Modal */}
+      <SignatureModal
+        open={sigModal.open}
+        title={sigModal.title}
+        loading={actionLoading}
+        onConfirm={sigModal.onConfirm}
+        onClose={() => setSigModal(s => ({ ...s, open: false }))}
+      />
 
       {/* ── Screen-only header ── */}
       <div className="no-print">
@@ -172,51 +340,37 @@ const NFADetailPage = () => {
           <div className="flex flex-wrap gap-2">
             {canSign() && (
               <button
-                onClick={() => doAction(() => nfaService.sign(id, signAction), 'NFA signed successfully')}
+                onClick={openSignModal}
                 disabled={actionLoading}
                 className="btn-primary flex items-center gap-2"
               >
-                <PenLine size={15} /> Sign NFA
+                <PenLine size={15} /> Sign as {signLabel}
               </button>
             )}
             {isMD && nfa.status === 'DIR_SIGNED' && (
               <>
                 <button
-                  onClick={() => doAction(() => nfaService.mdAction(id, 'approve', ''), 'NFA approved by MD')}
+                  onClick={() => openMdModal('approve')}
                   disabled={actionLoading}
                   className="flex items-center gap-1 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
                 >
                   <CheckCircle size={14} /> Approve
                 </button>
                 <button
-                  onClick={() => {
-                    const n = window.prompt('Rejection reason:')
-                    if (n !== null) doAction(() => nfaService.mdAction(id, 'reject', n), 'NFA rejected')
-                  }}
+                  onClick={() => openMdModal('reject')}
                   disabled={actionLoading}
                   className="flex items-center gap-1 px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
                 >
                   <XCircle size={14} /> Reject
                 </button>
                 <button
-                  onClick={() => {
-                    const n = window.prompt('Hold reason:')
-                    if (n !== null) doAction(() => nfaService.mdAction(id, 'hold', n), 'NFA on hold')
-                  }}
+                  onClick={() => openMdModal('hold')}
                   disabled={actionLoading}
                   className="flex items-center gap-1 px-3 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
                 >
                   <PauseCircle size={14} /> Hold
                 </button>
               </>
-            )}
-            {nfa.status === 'MD_APPROVED' && isPurchaseHOD && (
-              <Link
-                to={`/purchases/new?nfaId=${nfa.id}&indentId=${nfa.indentId}`}
-                className="btn-primary"
-              >
-                Create PO
-              </Link>
             )}
             <button
               onClick={() => window.print()}
@@ -234,6 +388,10 @@ const NFADetailPage = () => {
             <div className="flex items-start gap-0">
               {STEPS.map((step, i) => {
                 const done = !!step.who
+                const isMdStep = i === STEPS.length - 1
+                const modeLabel = isMdStep && nfa.mdApprovalMode && nfa.mdApprovalMode !== 'DIGITAL'
+                  ? APPROVAL_MODE_LABEL[nfa.mdApprovalMode]
+                  : null
                 return (
                   <div key={i} className="flex items-center flex-1">
                     <div className="flex flex-col items-center">
@@ -245,6 +403,18 @@ const NFADetailPage = () => {
                         <p className={`text-xs font-medium ${done ? 'text-green-700' : 'text-gray-400'}`}>{step.label}</p>
                         {step.who && <p className="text-xs text-gray-500">{step.who.name}</p>}
                         {step.at  && <p className="text-xs text-gray-400">{fmt(step.at)}</p>}
+                        {modeLabel && <p className="text-xs text-amber-600 font-medium mt-0.5">{modeLabel}</p>}
+                        {nfa.mdRecordedBy && isMdStep && (
+                          <p className="text-xs text-gray-400">via {nfa.mdRecordedBy.name}</p>
+                        )}
+                        {step.sig && (
+                          <img
+                            src={step.sig}
+                            alt="signature"
+                            className="mt-1 mx-auto border border-gray-200 rounded"
+                            style={{ maxHeight: '32px', maxWidth: '72px', objectFit: 'contain' }}
+                          />
+                        )}
                       </div>
                     </div>
                     {i < STEPS.length - 1 && (
@@ -254,8 +424,32 @@ const NFADetailPage = () => {
                 )
               })}
             </div>
+
+            {/* MD Notes display */}
+            {nfa.mdNotes && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 mb-1">MD Notes</p>
+                <p className="text-sm text-gray-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+                  {nfa.mdNotes}
+                </p>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Purchase HOD records MD decision (physical/call) */}
+        {isPurchaseHOD && nfa.status === 'DIR_SIGNED' && (
+          <RecordMdPanel onSubmit={handleRecordMd} loading={actionLoading} />
+        )}
+
+        {/* Create PO button (after MD approval) */}
+        {nfa.status === 'MD_APPROVED' && isPurchaseHOD && (
+          <div className="mb-5">
+            <Link to={`/purchases/new?nfaId=${nfa.id}&indentId=${nfa.indentId}`} className="btn-primary">
+              Create Purchase Order
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* ── Printable NFA Memo ── */}
@@ -297,7 +491,7 @@ const NFADetailPage = () => {
             <div>{nfa.indent?.indentNumber || '—'}</div>
           </div>
 
-          {/* Project/Site + Make in two columns */}
+          {/* Project/Site + Make */}
           <div style={{ borderBottom: '1px solid #ccc', display: 'flex' }}>
             <div style={{ flex: 3, borderRight: '1px solid #ccc', padding: '5px 16px', display: 'flex' }}>
               <div style={{ fontWeight: '600', flexShrink: 0, width: '150px' }}>Project / Site Name:</div>
@@ -330,36 +524,22 @@ const NFADetailPage = () => {
           {/* Item Description */}
           <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }}>
             <span style={{ fontWeight: '600' }}>Item Description: </span>
-            <span>{nfa.itemDescription || '—'}</span>
+            <span style={{ whiteSpace: 'pre-line' }}>{nfa.itemDescription || '—'}</span>
           </div>
 
           {/* Amount Table */}
           {[
-            { label: 'Amount Payable',                      value: `₹ ${fmtAmt(nfa.baseAmount)}` },
-            { label: 'Total',                               value: `₹ ${fmtAmt(nfa.baseAmount)}` },
-            { label: `Cartage`,                             value: nfa.cartage || 'FOR' },
-            { label: `GST @ ${nfa.gstPercent ?? 0}%`,      value: `₹ ${fmtAmt(nfa.gstAmount)}` },
-            { label: 'Grand Total',                         value: `₹ ${fmtAmt(nfa.totalAmount)}`, bold: true },
+            { label: 'Amount Payable',                   value: `Rs. ${fmtAmt(nfa.baseAmount)}` },
+            { label: 'Total',                            value: `Rs. ${fmtAmt(nfa.baseAmount)}` },
+            { label: 'Cartage',                          value: nfa.cartage || 'FOR' },
+            { label: `GST @ ${nfa.gstPercent ?? 0}%`,   value: `Rs. ${fmtAmt(nfa.gstAmount)}` },
+            { label: 'Grand Total',                      value: `Rs. ${fmtAmt(nfa.totalAmount)}`, bold: true },
           ].map(({ label, value, bold }) => (
-            <div key={label} style={{
-              display: 'flex',
-              borderBottom: '1px solid #ccc',
-            }}>
-              <div style={{
-                flex: 1,
-                padding: '4px 16px',
-                fontWeight: bold ? 'bold' : 'normal',
-                borderRight: '1px solid #ccc',
-              }}>
+            <div key={label} style={{ display: 'flex', borderBottom: '1px solid #ccc' }}>
+              <div style={{ flex: 1, padding: '4px 16px', fontWeight: bold ? 'bold' : 'normal', borderRight: '1px solid #ccc' }}>
                 {label}
               </div>
-              <div style={{
-                width: '180px',
-                padding: '4px 16px',
-                textAlign: 'right',
-                fontWeight: bold ? 'bold' : 'normal',
-                flexShrink: 0,
-              }}>
+              <div style={{ width: '180px', padding: '4px 16px', textAlign: 'right', fontWeight: bold ? 'bold' : 'normal', flexShrink: 0 }}>
                 {value}
               </div>
             </div>
@@ -397,7 +577,7 @@ const NFADetailPage = () => {
             </div>
           )}
 
-          {/* MD Notes (if any) */}
+          {/* MD Notes */}
           {nfa.mdNotes && (
             <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px', backgroundColor: '#fef9c3' }}>
               <span style={{ fontWeight: '600' }}>MD Decision Notes: </span>
@@ -406,18 +586,16 @@ const NFADetailPage = () => {
           )}
 
           {/* Signature Section */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '2px solid #000', minHeight: '100px' }}>
-            {/* Left column: GM + User Dept */}
-            <div style={{ borderRight: '1px solid #000', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {sigBox(nfa.gmSignedBy?.name,   'GM — Purchase',    nfa.gmSignedAt)}
-              {sigBox(nfa.userSignedBy?.name,  'User Department',  nfa.userSignedAt)}
-              {sigBox(nfa.cfoSignedBy?.name,   'CFO',              nfa.cfoSignedAt)}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '2px solid #000', minHeight: '110px' }}>
+            <div style={{ borderRight: '1px solid #000', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {sigBox(nfa.gmSignedBy?.name,  'GM — Purchase',   nfa.gmSignedAt,  nfa.gmSignature)}
+              {sigBox(nfa.userSignedBy?.name, 'User Department', nfa.userSignedAt, nfa.userSignature)}
+              {sigBox(nfa.cfoSignedBy?.name,  'CFO',             nfa.cfoSignedAt,  nfa.cfoSignature)}
             </div>
-            {/* Right column: President + Director */}
-            <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {sigBox(nfa.presidentSignedBy?.name, 'President — Projects', nfa.presidentSignedAt)}
-              {sigBox(nfa.dirSignedBy?.name,        'Executive Director',   nfa.dirSignedAt)}
-              {nfa.mdApprovedBy && sigBox(nfa.mdApprovedBy?.name, 'MD', nfa.mdApprovedAt)}
+            <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {sigBox(nfa.presidentSignedBy?.name, 'President — Projects', nfa.presidentSignedAt, nfa.presidentSignature)}
+              {sigBox(nfa.dirSignedBy?.name,        'Executive Director',   nfa.dirSignedAt,        nfa.dirSignature)}
+              {nfa.mdApprovedBy && sigBox(nfa.mdApprovedBy?.name, 'MD', nfa.mdApprovedAt, nfa.mdSignature)}
             </div>
           </div>
         </div>

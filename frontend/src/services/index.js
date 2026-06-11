@@ -58,8 +58,8 @@ export const comparativeService = {
     api.post(`/comparative/${id}/quotations/${quotationId}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   selectSupplier: (id, supplierId) => api.patch(`/comparative/${id}/select-supplier`, { supplierId }),
   hodRecommend: (id, notes) => api.patch(`/comparative/${id}/hod-recommend`, { notes }),
-  userVerify: (id) => api.patch(`/comparative/${id}/user-verify`),
-  presidentVerify: (id) => api.patch(`/comparative/${id}/president-verify`),
+  userVerify: (id, notes, supplierId) => api.patch(`/comparative/${id}/user-verify`, { notes, supplierId }),
+  presidentVerify: (id, notes, supplierId) => api.patch(`/comparative/${id}/president-verify`, { notes, supplierId }),
 }
 
 export const nfaService = {
@@ -68,8 +68,9 @@ export const nfaService = {
   create: (data) => api.post('/nfa', data),
   uploadDraftPO: (id, formData) =>
     api.post(`/nfa/${id}/upload-draft-po`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  sign: (id, action) => api.patch(`/nfa/${id}/sign`, { action }),
-  mdAction: (id, action, notes) => api.patch(`/nfa/${id}/md-action`, { action, notes }),
+  sign: (id, action, signature) => api.patch(`/nfa/${id}/sign`, { action, signature }),
+  mdAction: (id, action, notes, signature) => api.patch(`/nfa/${id}/md-action`, { action, notes, signature, approvalMode: 'DIGITAL' }),
+  mdRecordAction: (id, action, notes, approvalMode) => api.patch(`/nfa/${id}/md-action`, { action, notes, approvalMode }),
 }
 
 export const mrnService = {
@@ -104,6 +105,7 @@ export const transfersService = {
 
 export const reportsService = {
   getDashboard: () => api.get('/reports/dashboard'),
+  getMyPending: () => api.get('/reports/my-pending'),
   getCurrentStock: (params) => api.get('/reports/current-stock', { params }),
   getLowStock: () => api.get('/reports/low-stock'),
   getSupplierPurchases: (params) => api.get('/reports/supplier-purchases', { params }),

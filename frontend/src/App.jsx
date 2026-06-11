@@ -27,6 +27,7 @@ import CreateIndentPage from './pages/indents/CreateIndentPage'
 import IndentDetailPage from './pages/indents/IndentDetailPage'
 import ComparativePage from './pages/comparative/ComparativePage'
 import CreateComparativePage from './pages/comparative/CreateComparativePage'
+import ComparativeDetailPage from './pages/comparative/ComparativeDetailPage'
 import NFAPage from './pages/nfa/NFAPage'
 import CreateNFAPage from './pages/nfa/CreateNFAPage'
 import NFADetailPage from './pages/nfa/NFADetailPage'
@@ -84,6 +85,7 @@ const AppRoutes = () => (
       <Route path="indents/:id" element={<IndentDetailPage />} />
       <Route path="comparative" element={<ComparativePage />} />
       <Route path="comparative/new" element={<CreateComparativePage />} />
+      <Route path="comparative/:id" element={<ComparativeDetailPage />} />
       <Route path="nfa" element={<NFAPage />} />
       <Route path="nfa/new" element={<CreateNFAPage />} />
       <Route path="nfa/:id" element={<NFADetailPage />} />

@@ -109,7 +109,6 @@ const CreateComparativePage = () => {
                   <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Quotation Date</th>
                   <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Total Amount</th>
                   <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Remarks</th>
-                  <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Selected?</th>
                   <th></th>
                 </tr>
               </thead>
@@ -130,9 +129,6 @@ const CreateComparativePage = () => {
                     </td>
                     <td className="px-3 py-2">
                       <input {...register(`quotations.${idx}.remarks`)} className="input py-1.5 w-36" placeholder="Notes" />
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <input type="checkbox" {...register(`quotations.${idx}.isSelected`)} className="rounded" />
                     </td>
                     <td className="px-3 py-2">
                       {qFields.length > 1 && (

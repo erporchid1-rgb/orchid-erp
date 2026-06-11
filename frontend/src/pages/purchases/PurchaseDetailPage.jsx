@@ -1,21 +1,66 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { purchasesService } from '../../services'
 import { formatCurrency, formatDate, getStatusBadge } from '../../utils/helpers'
-import { ArrowLeft, Download, CheckCircle, XCircle, Send, Upload, FileText, ClipboardList } from 'lucide-react'
+import { ArrowLeft, Printer, CheckCircle, XCircle, Send, FileCheck } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
-const STATUS_STEPS = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'CONFIRMED', 'RECEIVED']
-
 const STATUS_LABEL = {
-  DRAFT: 'Draft',
+  DRAFT:            'Draft',
   PENDING_APPROVAL: 'Pending Approval',
-  APPROVED: 'Approved',
-  CONFIRMED: 'Confirmed',
-  RECEIVED: 'Received',
-  REJECTED: 'Rejected',
-  CANCELLED: 'Cancelled',
+  APPROVED:         'Approved',
+  CONFIRMED:        'Confirmed (Placed)',
+  RECEIVED:         'Received',
+  REJECTED:         'Rejected',
+  CANCELLED:        'Cancelled',
+}
+
+const fmt = (date) => {
+  if (!date) return '—'
+  const d = new Date(date)
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
+}
+
+const fmtAmt = (val) =>
+  val != null && val !== ''
+    ? new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val)
+    : '0.00'
+
+// Convert number to words (Indian system)
+const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine',
+              'Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen',
+              'Seventeen','Eighteen','Nineteen']
+const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety']
+const toWords = (n) => {
+  n = Math.round(n)
+  if (n === 0) return 'Zero'
+  const crore = Math.floor(n / 10000000)
+  const lakh  = Math.floor((n % 10000000) / 100000)
+  const thou  = Math.floor((n % 100000) / 1000)
+  const hun   = Math.floor((n % 1000) / 100)
+  const rem   = n % 100
+  const twoDigit = (num) => {
+    if (num < 20) return ones[num]
+    return tens[Math.floor(num/10)] + (num%10 ? ' ' + ones[num%10] : '')
+  }
+  let result = ''
+  if (crore) result += twoDigit(crore) + ' Crore '
+  if (lakh)  result += twoDigit(lakh)  + ' Lakh '
+  if (thou)  result += twoDigit(thou)  + ' Thousand '
+  if (hun)   result += ones[hun] + ' Hundred '
+  if (rem)   result += twoDigit(rem)
+  return result.trim()
+}
+
+const amountInWords = (total) => {
+  if (!total) return ''
+  const rupees = Math.floor(total)
+  const paisa  = Math.round((total - rupees) * 100)
+  let words = toWords(rupees) + ' Rupees'
+  if (paisa) words += ' and ' + toWords(paisa) + ' Paisa'
+  return words + ' Only'
 }
 
 const PurchaseDetailPage = () => {
@@ -23,14 +68,12 @@ const PurchaseDetailPage = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [purchase, setPurchase] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [acting, setActing] = useState(false)
+  const [loading,  setLoading]  = useState(true)
+  const [acting,   setActing]   = useState(false)
   const [approvalNotes, setApprovalNotes] = useState('')
-  const quotationRefs = [useRef(), useRef(), useRef()]
 
-  const isAdmin = user?.role === 'ADMIN'
-  const isStoreOrAdmin = ['ADMIN', 'STORE_MANAGER', 'ACCOUNTANT'].includes(user?.role)
-  const isSiteEngineer = user?.role === 'SITE_ENGINEER'
+  const isAdmin       = ['ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'MD', 'EXE_DIRECTOR'].includes(user?.role)
+  const isPurchaseHOD = ['PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'].includes(user?.role)
 
   const load = () => {
     purchasesService.getById(id)
@@ -41,285 +84,339 @@ const PurchaseDetailPage = () => {
 
   useEffect(() => { load() }, [id])
 
-  const act = async (fn, successMsg) => {
+  const act = async (fn, msg) => {
     setActing(true)
-    try { await fn(); toast.success(successMsg); load() }
+    try { await fn(); toast.success(msg); load() }
     catch (err) { toast.error(err.response?.data?.message || 'Action failed') }
     finally { setActing(false) }
   }
 
-  const handleSubmitForApproval = () => act(() => purchasesService.submitForApproval(id), 'Sent for management approval')
-  const handleApprove = () => act(() => purchasesService.approve(id, approvalNotes), 'Purchase approved')
-  const handleReject = () => {
-    if (!approvalNotes.trim()) return toast.error('Please enter rejection reason')
-    act(() => purchasesService.reject(id, approvalNotes), 'Purchase rejected')
-  }
-  const handleStatus = (status) => act(() => purchasesService.updateStatus(id, status), `Marked as ${status}`)
-
-  const handleDownloadPDF = async () => {
-    try {
-      const res = await purchasesService.getPDF(id)
-      const url = URL.createObjectURL(new Blob([res.data]))
-      const a = document.createElement('a'); a.href = url; a.download = `invoice-${purchase.billNo}.pdf`; a.click()
-    } catch { toast.error('PDF generation failed') }
-  }
-
-  const handleQuotationUpload = async (num, file) => {
-    const fd = new FormData(); fd.append('file', file)
-    try {
-      await purchasesService.uploadQuotation(id, num, fd)
-      toast.success(`Quotation ${num} uploaded`)
-      load()
-    } catch { toast.error('Upload failed') }
-  }
-
-  if (loading) return <div className="flex justify-center py-12"><div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin" style={{ borderWidth: '3px' }} /></div>
+  if (loading) return (
+    <div className="flex justify-center py-12">
+      <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+    </div>
+  )
   if (!purchase) return null
 
-  const stepIdx = STATUS_STEPS.indexOf(purchase.status)
-  const isRejected = purchase.status === 'REJECTED'
-  const isCancelled = purchase.status === 'CANCELLED'
+  // Per-item base amount (ex-GST)
+  const itemBase = (item) => (parseFloat(item.quantity)||0) * (parseFloat(item.rate)||0)
+  const baseTotal = purchase.items.reduce((s, i) => s + itemBase(i), 0)
+  const gstTotal  = purchase.gstAmount || 0
+  const transport = parseFloat(purchase.transportCost) || 0
+
+  // Terms & Conditions lines
+  const tcLines = (purchase.termsConditions || '').split('\n').filter(l => l.trim())
+
+  // Standard footer T&C always appended (9-13)
+  const footerTC = [
+    `Indent No.: This material is required against Indent No. ${purchase.indent?.indentNumber || '—'}.`,
+    `In case the supplier's material stands rejected as per the Test Report conducted on our behalf, OIDPL shall have rights to reject the materials and to recover the cost of all such testing from the supplier's pending/future bill. Supplier shall lift the rejected materials on his own cost within 48 hours of intimation.`,
+    `Site Address: ${purchase.site?.siteName || ''}${purchase.site?.address ? ', ' + purchase.site.address : ''}, ${purchase.project?.projectName || ''}.`,
+    `Billing Address: M/s Orchid Infrastructure Developers Pvt. Ltd., Level-II, Global Arcade, M.G. Road, Gurugram, Haryana. GSTIN: 06AAACB0370M1ZV`,
+    `Contact Person: ${purchase.contactPerson || '—'}${purchase.contactMobile ? ' (Mobile: ' + purchase.contactMobile + ')' : ''}`,
+  ]
 
   return (
-    <div className="max-w-4xl">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm">
-          <ArrowLeft size={15} /> Back
-        </button>
-        <div className="flex-1">
-          <h1 className="page-title">Purchase Order — <span className="font-mono text-primary-700">{purchase.billNo}</span></h1>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          {/* DRAFT → Submit for approval */}
-          {purchase.status === 'DRAFT' && isStoreOrAdmin && (
-            <button onClick={handleSubmitForApproval} disabled={acting} className="btn-primary btn-sm">
-              <Send size={14} /> Submit for Approval
-            </button>
-          )}
-          {/* PENDING_APPROVAL → Admin approves or rejects */}
-          {/* Actions are in the approval card below */}
-          {/* APPROVED → Confirm PO */}
-          {purchase.status === 'APPROVED' && isStoreOrAdmin && (
-            <button onClick={() => handleStatus('CONFIRMED')} disabled={acting} className="btn-success btn-sm">
-              <CheckCircle size={14} /> Confirm PO
-            </button>
-          )}
-          {/* CONFIRMED → Site incharge marks received */}
-          {purchase.status === 'CONFIRMED' && (
-            <button onClick={() => handleStatus('RECEIVED')} disabled={acting} className="btn-success btn-sm">
-              <CheckCircle size={14} /> Mark Received
-            </button>
-          )}
-          {/* Cancel (any stage except terminal) */}
-          {!['RECEIVED', 'CANCELLED', 'REJECTED'].includes(purchase.status) && isStoreOrAdmin && (
-            <button onClick={() => handleStatus('CANCELLED')} disabled={acting} className="btn-danger btn-sm">
-              <XCircle size={14} /> Cancel
-            </button>
-          )}
-          {/* PDF download */}
-          {purchase.status === 'RECEIVED' && (
-            <button onClick={handleDownloadPDF} className="btn-secondary btn-sm"><Download size={14} /> Invoice PDF</button>
-          )}
-        </div>
-      </div>
+    <div>
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #po-print-area, #po-print-area * { visibility: visible; }
+          #po-print-area { position: fixed; left: 0; top: 0; width: 100%; }
+        }
+      `}</style>
 
-      {/* Progress Bar */}
-      {!isRejected && !isCancelled && (
-        <div className="card mb-4 p-4">
-          <div className="flex items-center gap-0">
-            {STATUS_STEPS.map((step, i) => (
-              <div key={step} className="flex items-center flex-1">
-                <div className={`flex flex-col items-center ${i > 0 ? 'flex-1' : ''}`}>
-                  {i > 0 && <div className={`h-0.5 w-full mb-2 ${i <= stepIdx ? 'bg-primary-600' : 'bg-gray-200'}`} />}
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                    i < stepIdx ? 'bg-primary-600 text-white' :
-                    i === stepIdx ? 'bg-primary-700 text-white ring-2 ring-primary-200' :
-                    'bg-gray-200 text-gray-500'
-                  }`}>
-                    {i < stepIdx ? '✓' : i + 1}
-                  </div>
-                  <p className={`text-xs mt-1 whitespace-nowrap ${i === stepIdx ? 'text-primary-700 font-semibold' : 'text-gray-400'}`}>
-                    {STATUS_LABEL[step]}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Management Approval Section */}
-      {purchase.status === 'PENDING_APPROVAL' && isAdmin && (
-        <div className="card mb-4 border-amber-200 bg-amber-50">
-          <div className="card-body">
-            <h3 className="font-semibold text-amber-800 mb-3">Management Approval Required</h3>
-            <p className="text-sm text-amber-700 mb-3">
-              Purchase order <strong>{purchase.billNo}</strong> for <strong>{formatCurrency(purchase.totalAmount)}</strong> is awaiting your approval.
-            </p>
-            <textarea
-              value={approvalNotes}
-              onChange={(e) => setApprovalNotes(e.target.value)}
-              className="input mb-3"
-              rows={2}
-              placeholder="Notes (required for rejection, optional for approval)..."
-            />
-            <div className="flex gap-2">
-              <button onClick={handleApprove} disabled={acting} className="btn-success">
-                <CheckCircle size={14} /> Approve Purchase
-              </button>
-              <button onClick={handleReject} disabled={acting} className="btn-danger">
-                <XCircle size={14} /> Reject
-              </button>
+      {/* ── Screen header ── */}
+      <div className="no-print">
+        <div className="page-header">
+          <div>
+            <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm mb-2">
+              <ArrowLeft size={15} /> Back
+            </button>
+            <h1 className="page-title">PO — <span className="font-mono text-primary-700">{purchase.billNo}</span></h1>
+            <div className="flex items-center gap-3 mt-1 text-sm flex-wrap">
+              <span className={getStatusBadge(purchase.status)}>{STATUS_LABEL[purchase.status] || purchase.status}</span>
+              {purchase.indent && (
+                <Link to={`/indents/${purchase.indent.id}`} className="text-primary-700 hover:underline flex items-center gap-1">
+                  Indent: {purchase.indent.indentNumber}
+                </Link>
+              )}
+              {purchase.nfa && (
+                <Link to={`/nfa/${purchase.nfa.id}`} className="text-primary-700 hover:underline flex items-center gap-1">
+                  <FileCheck size={13} /> NFA: {purchase.nfa.nfaNumber}
+                </Link>
+              )}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Rejection notice */}
-      {isRejected && (
-        <div className="card mb-4 border-red-200 bg-red-50">
-          <div className="card-body">
-            <p className="font-semibold text-red-700">Purchase Rejected</p>
-            <p className="text-sm text-red-600 mt-1">Rejected by: {purchase.approvedBy?.name}</p>
-            {purchase.approvalNotes && <p className="text-sm text-red-600 mt-1">Reason: {purchase.approvalNotes}</p>}
+          <div className="flex flex-wrap gap-2">
+            {purchase.status === 'DRAFT' && isPurchaseHOD && (
+              <button onClick={() => act(() => purchasesService.submitForApproval(id), 'Sent for approval')}
+                disabled={acting} className="btn-primary flex items-center gap-2">
+                <Send size={14} /> Submit for Approval
+              </button>
+            )}
+            {purchase.status === 'PENDING_APPROVAL' && isAdmin && (
+              <>
+                <button onClick={() => act(() => purchasesService.approve(id, approvalNotes), 'Purchase approved')}
+                  disabled={acting} className="flex items-center gap-1 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">
+                  <CheckCircle size={14} /> Approve
+                </button>
+                <button onClick={() => {
+                  if (!approvalNotes.trim()) return toast.error('Enter rejection reason')
+                  act(() => purchasesService.reject(id, approvalNotes), 'Purchase rejected')
+                }} disabled={acting} className="flex items-center gap-1 px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">
+                  <XCircle size={14} /> Reject
+                </button>
+              </>
+            )}
+            {purchase.status === 'PENDING_APPROVAL' && isAdmin && (
+              <textarea value={approvalNotes} onChange={e => setApprovalNotes(e.target.value)}
+                className="input text-sm" rows={1} placeholder="Notes (required for rejection)..." />
+            )}
+            <button onClick={() => window.print()} className="btn-secondary flex items-center gap-2">
+              <Printer size={15} /> Print PO
+            </button>
           </div>
         </div>
-      )}
 
-      {/* Summary */}
-      <div className="card mb-4">
-        <div className="card-body flex flex-wrap items-center gap-6">
+        {/* Info cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
           {[
-            { label: 'Status', value: <span className={getStatusBadge(purchase.status)}>{STATUS_LABEL[purchase.status] || purchase.status}</span> },
-            { label: 'Date', value: formatDate(purchase.purchaseDate) },
-            { label: 'Supplier', value: purchase.supplier?.supplierName },
-            { label: 'Project', value: purchase.project?.projectName || '—' },
-            { label: 'Site', value: purchase.site?.siteName || '—' },
-            { label: 'Ordered By', value: purchase.orderedBy?.name },
-            ...(purchase.approvedBy ? [{ label: 'Approved By', value: purchase.approvedBy?.name }] : []),
+            { label: 'Supplier',  value: purchase.supplier?.supplierName },
+            { label: 'Project',   value: purchase.project?.projectName || '—' },
+            { label: 'Site',      value: purchase.site?.siteName || '—' },
+            { label: 'Total',     value: formatCurrency(purchase.totalAmount) },
           ].map(({ label, value }) => (
-            <div key={label}>
+            <div key={label} className="card p-3">
               <p className="text-xs text-gray-500">{label}</p>
-              <div className="font-semibold text-gray-800 mt-0.5">{value}</div>
+              <p className="font-semibold text-gray-800 mt-0.5 text-sm">{value}</p>
             </div>
           ))}
         </div>
-        {/* Linked indent */}
-        {purchase.indent && (
-          <div className="px-6 pb-4">
-            <Link to={`/indents/${purchase.indent.id}`} className="inline-flex items-center gap-2 text-sm text-primary-700 hover:underline">
-              <ClipboardList size={14} /> Indent: {purchase.indent.indentNumber}
-              {purchase.indent.purpose && ` — ${purchase.indent.purpose}`}
-            </Link>
-          </div>
-        )}
-      </div>
 
-      {/* Quotations */}
-      {isStoreOrAdmin && (
-        <div className="card mb-4">
-          <div className="card-header">
-            <h3 className="font-semibold text-gray-800">Supplier Quotations</h3>
-            <p className="text-xs text-gray-500">Upload quotations from 3 suppliers for comparison</p>
+        {/* Items table on screen */}
+        <div className="card mb-5">
+          <div className="card-header"><h3 className="font-semibold text-gray-800">Items</h3></div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  {['#','Material','Unit','Qty','Rate','GST%','Amount'].map(h => (
+                    <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {purchase.items?.map((item, i) => (
+                  <tr key={item.id}>
+                    <td className="px-3 py-2 text-gray-400">{i+1}</td>
+                    <td className="px-3 py-2 font-medium">{item.material?.materialName}</td>
+                    <td className="px-3 py-2">{item.unit}</td>
+                    <td className="px-3 py-2">{item.quantity}</td>
+                    <td className="px-3 py-2">₹{fmtAmt(item.rate)}</td>
+                    <td className="px-3 py-2">{item.gstPercent}%</td>
+                    <td className="px-3 py-2 font-semibold">{formatCurrency(item.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div className="card-body grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1, 2, 3].map((num) => {
-              const file = purchase[`quotation${num}File`]
-              return (
-                <div key={num} className="border rounded-lg p-3 bg-gray-50">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Quotation {num}</p>
-                  {file ? (
-                    <div className="flex items-center gap-2">
-                      <FileText size={16} className="text-green-600" />
-                      <a href={`/uploads/${file}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary-700 hover:underline truncate">{file}</a>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-400 mb-2">Not uploaded</p>
-                  )}
-                  {!['RECEIVED', 'REJECTED', 'CANCELLED'].includes(purchase.status) && (
-                    <>
-                      <input
-                        ref={quotationRefs[num - 1]}
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        className="hidden"
-                        onChange={(e) => e.target.files[0] && handleQuotationUpload(num, e.target.files[0])}
-                      />
-                      <button
-                        onClick={() => quotationRefs[num - 1].current.click()}
-                        className="btn btn-secondary btn-sm mt-2 w-full justify-center"
-                      >
-                        <Upload size={12} /> {file ? 'Replace' : 'Upload'}
-                      </button>
-                    </>
-                  )}
-                </div>
-              )
-            })}
+          <div className="flex justify-end p-4 border-t text-sm">
+            <div className="w-64 space-y-1.5">
+              <div className="flex justify-between"><span className="text-gray-600">Subtotal (ex-GST)</span><span>{formatCurrency(baseTotal)}</span></div>
+              {transport > 0 && <div className="flex justify-between"><span className="text-gray-600">Transport</span><span>{formatCurrency(transport)}</span></div>}
+              <div className="flex justify-between"><span className="text-gray-600">GST</span><span>{formatCurrency(gstTotal)}</span></div>
+              <div className="flex justify-between font-bold text-base pt-2 border-t"><span>Grand Total</span><span className="text-primary-700">{formatCurrency(purchase.totalAmount)}</span></div>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Items Table */}
-      <div className="card mb-4">
-        <div className="card-header"><h3 className="font-semibold text-gray-800">Purchase Items</h3></div>
-        <div className="table-container rounded-none border-0">
-          <table className="table">
-            <thead><tr><th>#</th><th>Material</th><th>Category</th><th>Unit</th><th>Quantity</th><th>Rate</th><th>GST%</th><th>Amount</th></tr></thead>
-            <tbody className="bg-white divide-y divide-gray-100">
+      {/* ── PRINTABLE PO (A4) ── */}
+      <div id="po-print-area">
+        <div style={{
+          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontSize: '12px',
+          lineHeight: '1.55',
+          maxWidth: '740px',
+          margin: '0 auto',
+          padding: '20px',
+          backgroundColor: '#fff',
+          color: '#000',
+        }}>
+
+          {/* ── TOP: Ref & Date (right-aligned) ── */}
+          <div style={{ textAlign: 'right', marginBottom: '18px' }}>
+            <div><strong>Ref.: {purchase.billNo}</strong></div>
+            <div>{fmt(purchase.purchaseDate)}</div>
+          </div>
+
+          {/* ── Supplier Address Block ── */}
+          <div style={{ marginBottom: '14px' }}>
+            <div><strong>M/s {purchase.supplier?.supplierName}</strong></div>
+            {purchase.supplier?.address && (
+              <div style={{ whiteSpace: 'pre-line' }}>{purchase.supplier.address}</div>
+            )}
+            {purchase.supplier?.gstNumber && (
+              <div><strong>GSTIN: {purchase.supplier.gstNumber}</strong></div>
+            )}
+          </div>
+
+          {purchase.supplier?.email && (
+            <div style={{ marginBottom: '6px' }}>
+              <strong>E-mail: </strong>{purchase.supplier.email}
+            </div>
+          )}
+
+          {(purchase.attnPerson || purchase.attnMobile) && (
+            <div style={{ marginBottom: '14px' }}>
+              <strong>Kind Attn.: </strong>
+              {purchase.attnPerson}
+              {purchase.attnMobile && ` (Mob. # ${purchase.attnMobile})`}
+            </div>
+          )}
+
+          {/* ── Subject ── */}
+          <div style={{ marginBottom: '14px' }}>
+            <strong>Sub.: </strong>
+            {purchase.notes || `Order for Supply of materials for ${purchase.project?.projectName || ''}`}
+          </div>
+
+          {/* ── Dear Sir body ── */}
+          <div style={{ marginBottom: '14px' }}>
+            Dear Sir,
+            <br />
+            {purchase.refInvoiceNo
+              ? `With reference to your pro-forma invoice no. ${purchase.refInvoiceNo}${purchase.refInvoiceDate ? ', dated ' + fmt(purchase.refInvoiceDate) : ''} and subsequent discussions with us, we are pleased to place an order for the following, on the agreed rates, terms & conditions mentioned below:—`
+              : `With reference to our discussions with you, we are pleased to place an order for the following, on the agreed rates, terms & conditions mentioned below:—`
+            }
+          </div>
+
+          {/* ── Items Table ── */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px', fontSize: '12px' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #000', borderTop: '2px solid #000' }}>
+                {['Sr. No.', 'Item Description', 'UoM', 'Qty', 'Rate', 'Amount'].map(h => (
+                  <th key={h} style={{
+                    padding: '5px 8px',
+                    textAlign: h === 'Qty' || h === 'Rate' || h === 'Amount' ? 'right' : 'left',
+                    fontWeight: 'bold',
+                    borderRight: '1px solid #ccc',
+                  }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
               {purchase.items?.map((item, i) => (
-                <tr key={item.id}>
-                  <td>{i + 1}</td>
-                  <td className="font-medium">{item.material?.materialName}</td>
-                  <td>{item.material?.category?.name}</td>
-                  <td>{item.unit}</td>
-                  <td>{item.quantity}</td>
-                  <td>{formatCurrency(item.rate)}</td>
-                  <td>{item.gstPercent}%</td>
-                  <td className="font-semibold">{formatCurrency(item.amount)}</td>
+                <tr key={item.id} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '5px 8px', borderRight: '1px solid #ccc', verticalAlign: 'top' }}>{i+1}</td>
+                  <td style={{ padding: '5px 8px', borderRight: '1px solid #ccc' }}>
+                    {item.material?.materialName}
+                  </td>
+                  <td style={{ padding: '5px 8px', textAlign: 'right', borderRight: '1px solid #ccc' }}>{item.unit}</td>
+                  <td style={{ padding: '5px 8px', textAlign: 'right', borderRight: '1px solid #ccc' }}>{item.quantity}</td>
+                  <td style={{ padding: '5px 8px', textAlign: 'right', borderRight: '1px solid #ccc' }}>₹{fmtAmt(item.rate)}/-</td>
+                  <td style={{ padding: '5px 8px', textAlign: 'right' }}>₹{fmtAmt(itemBase(item))}.00/-</td>
                 </tr>
               ))}
+
+              {/* Total Qty / Total Amount row */}
+              <tr style={{ borderTop: '1px solid #000', borderBottom: '1px solid #ccc' }}>
+                <td colSpan={2} style={{ padding: '4px 8px', borderRight: '1px solid #ccc' }} />
+                <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 'bold', borderRight: '1px solid #ccc' }}>
+                  {purchase.items?.reduce((s,i) => s + (parseFloat(i.quantity)||0), 0)}
+                </td>
+                <td colSpan={2} style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 'bold', borderRight: '1px solid #ccc' }}>Total Amt.</td>
+                <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 'bold' }}>₹{fmtAmt(baseTotal)}.00/-</td>
+              </tr>
+
+              {/* Freight */}
+              <tr style={{ borderBottom: '1px solid #ccc' }}>
+                <td colSpan={5} style={{ padding: '4px 8px', textAlign: 'right', borderRight: '1px solid #ccc' }}>Freight</td>
+                <td style={{ padding: '4px 8px', textAlign: 'right' }}>
+                  {transport > 0 ? `₹${fmtAmt(transport)}/-` : 'FOR'}
+                </td>
+              </tr>
+
+              {/* GST */}
+              <tr style={{ borderBottom: '1px solid #ccc' }}>
+                <td colSpan={5} style={{ padding: '4px 8px', textAlign: 'right', borderRight: '1px solid #ccc' }}>
+                  GST @ {purchase.items?.[0]?.gstPercent ?? 18}%
+                </td>
+                <td style={{ padding: '4px 8px', textAlign: 'right' }}>₹{fmtAmt(gstTotal)}/-</td>
+              </tr>
+
+              {/* Grand Total */}
+              <tr style={{ borderTop: '2px solid #000', borderBottom: '2px solid #000' }}>
+                <td colSpan={5} style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 'bold', borderRight: '1px solid #ccc' }}>
+                  Grand Total
+                </td>
+                <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 'bold' }}>
+                  ₹{fmtAmt(purchase.totalAmount)}/-
+                </td>
+              </tr>
             </tbody>
           </table>
-        </div>
-        <div className="flex justify-end p-5 border-t border-gray-100">
-          <div className="w-64 space-y-2">
-            {[
-              { label: 'Subtotal', value: purchase.subtotal },
-              { label: 'GST', value: purchase.gstAmount },
-              ...(parseFloat(purchase.transportCost) > 0 ? [{ label: 'Transport', value: purchase.transportCost }] : []),
-              ...(parseFloat(purchase.discountAmount) > 0 ? [{ label: 'Discount', value: -purchase.discountAmount }] : []),
-            ].map(({ label, value }) => (
-              <div key={label} className="flex justify-between text-sm">
-                <span className="text-gray-600">{label}</span>
-                <span className={parseFloat(value) < 0 ? 'text-red-600' : ''}>{formatCurrency(Math.abs(value))}</span>
-              </div>
-            ))}
-            <div className="flex justify-between font-bold text-base pt-2 border-t">
-              <span>Total Amount</span>
-              <span className="text-primary-700">{formatCurrency(purchase.totalAmount)}</span>
+
+          {/* Amount in words */}
+          <div style={{ marginBottom: '14px', fontStyle: 'italic' }}>
+            ({amountInWords(purchase.totalAmount)})
+          </div>
+
+          {/* Note (i)(ii) */}
+          <div style={{ marginBottom: '14px' }}>
+            <strong>Note: -</strong><br />
+            (i) Manufacturer&apos;s Test Certificate to be furnished.<br />
+            (ii) The quantity of the purchase order can vary ± 0.5%
+          </div>
+
+          {/* Terms & Conditions */}
+          {tcLines.length > 0 && (
+            <div style={{ marginBottom: '14px' }}>
+              <strong>Terms & Conditions:</strong>
+              <ol style={{ paddingLeft: '0', listStyle: 'none', margin: '4px 0 0 0' }}>
+                {tcLines.map((line, i) => (
+                  <li key={i} style={{ marginBottom: '3px' }}>{line}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* Page continuation marker */}
+          <div style={{ textAlign: 'right', marginBottom: '8px', fontWeight: 'bold' }}>
+            Contd.../-2-/
+          </div>
+
+          {/* ── PAGE BREAK ── */}
+          <div style={{ pageBreakBefore: 'always', paddingTop: '20px' }}>
+            <div style={{ textAlign: 'center', fontWeight: 'bold', marginBottom: '8px' }}>
+              ::- 2 -::
+            </div>
+
+            {/* Footer T&C (9-13) */}
+            <ol style={{ paddingLeft: '0', listStyle: 'none', margin: '0 0 16px 0' }}>
+              {footerTC.map((line, i) => (
+                <li key={i} style={{ marginBottom: '5px' }}>
+                  <strong>{i + 9}.</strong> {line}
+                </li>
+              ))}
+            </ol>
+
+            <div style={{ marginBottom: '20px', fontWeight: 'bold' }}>
+              You are requested to dispatch the materials immediately.
+            </div>
+
+            <div style={{ marginBottom: '60px' }}>
+              Thanking You,<br />
+              Yours Faithfully<br />
+              <strong>For Orchid Infrastructure Developers Pvt. Ltd.</strong>
+            </div>
+
+            {/* Signature box */}
+            <div style={{ marginTop: '50px', borderTop: '1px solid #000', paddingTop: '8px', width: '220px' }}>
+              <strong>(Authorized Signatory)</strong>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Supplier */}
-      <div className="card">
-        <div className="card-header"><h3 className="font-semibold text-gray-800">Supplier Details</h3></div>
-        <div className="card-body grid grid-cols-2 md:grid-cols-3 gap-4">
-          {[
-            { label: 'Name', value: purchase.supplier?.supplierName },
-            { label: 'Mobile', value: purchase.supplier?.mobile },
-            { label: 'Email', value: purchase.supplier?.email || '—' },
-            { label: 'GST', value: purchase.supplier?.gstNumber || '—' },
-            { label: 'Address', value: purchase.supplier?.address || '—' },
-          ].map(({ label, value }) => (
-            <div key={label} className="bg-gray-50 p-3 rounded-lg">
-              <p className="text-xs text-gray-500">{label}</p>
-              <p className="font-medium text-gray-800 mt-0.5">{value}</p>
-            </div>
-          ))}
         </div>
       </div>
     </div>

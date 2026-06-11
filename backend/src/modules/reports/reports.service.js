@@ -209,4 +209,92 @@ const getDashboardStats = async () => {
   };
 };
 
-module.exports = { currentStockReport, lowStockReport, supplierPurchaseReport, siteConsumptionReport, dailyPurchaseReport, monthlyUsageReport, getDashboardStats };
+// ─── MY PENDING APPROVALS (role-based) ─────────────────────────────────────
+
+const getMyPending = async (userId, role) => {
+  const pending = [];
+
+  const indentSelect = { select: { id: true, indentNumber: true, department: true, createdAt: true, requestedBy: { select: { name: true } } } };
+  const csSelect     = { select: { id: true, csNumber: true, createdAt: true, indent: { select: { indentNumber: true } } } };
+  const nfaSelect    = { select: { id: true, nfaNumber: true, createdAt: true, indent: { select: { indentNumber: true } } } };
+
+  if (['USER_HOD', 'ADMIN'].includes(role)) {
+    const indents = await prisma.indent.findMany({
+      where: { status: 'HOD_PENDING' }, orderBy: { createdAt: 'desc' }, take: 10, ...indentSelect,
+    });
+    if (indents.length) pending.push({ type: 'indent', action: 'HOD Approval', path: '/indents', items: indents.map(i => ({ id: i.id, label: i.indentNumber, sub: `${i.requestedBy?.name} · ${i.department || ''}`, path: `/indents/${i.id}` })) });
+
+    const nfas = await prisma.nFA.findMany({
+      where: { status: 'GM_SIGNED' }, orderBy: { createdAt: 'desc' }, take: 10, ...nfaSelect,
+    });
+    if (nfas.length) pending.push({ type: 'nfa', action: 'NFA — User HOD Signature', path: '/nfa', items: nfas.map(n => ({ id: n.id, label: n.nfaNumber, sub: n.indent?.indentNumber || '', path: `/nfa/${n.id}` })) });
+
+    const css = await prisma.comparativeStatement.findMany({
+      where: { status: 'HOD_RECOMMENDED' }, orderBy: { createdAt: 'desc' }, take: 10, ...csSelect,
+    });
+    if (css.length) pending.push({ type: 'cs', action: 'CS User Verification', path: '/comparative', items: css.map(c => ({ id: c.id, label: c.csNumber, sub: c.indent?.indentNumber || '', path: `/comparative/${c.id}` })) });
+  }
+
+  if (['PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'].includes(role)) {
+    const indents = await prisma.indent.findMany({
+      where: { status: 'PURCHASE_PENDING' }, orderBy: { createdAt: 'desc' }, take: 10, ...indentSelect,
+    });
+    if (indents.length) pending.push({ type: 'indent', action: 'Purchase Acceptance', path: '/indents', items: indents.map(i => ({ id: i.id, label: i.indentNumber, sub: `${i.requestedBy?.name} · ${i.department || ''}`, path: `/indents/${i.id}` })) });
+
+    const css = await prisma.comparativeStatement.findMany({
+      where: { status: 'DRAFT' }, orderBy: { createdAt: 'desc' }, take: 10, ...csSelect,
+    });
+    if (css.length) pending.push({ type: 'cs', action: 'CS HOD Recommendation', path: '/comparative', items: css.map(c => ({ id: c.id, label: c.csNumber, sub: c.indent?.indentNumber || '', path: `/comparative/${c.id}` })) });
+
+    const nfas = await prisma.nFA.findMany({
+      where: { status: 'DRAFT' }, orderBy: { createdAt: 'desc' }, take: 10, ...nfaSelect,
+    });
+    if (nfas.length) pending.push({ type: 'nfa', action: 'NFA — GM Signature', path: '/nfa', items: nfas.map(n => ({ id: n.id, label: n.nfaNumber, sub: n.indent?.indentNumber || '', path: `/nfa/${n.id}` })) });
+  }
+
+  if (['CFO', 'ADMIN'].includes(role)) {
+    const nfas = await prisma.nFA.findMany({
+      where: { status: 'USER_SIGNED' }, orderBy: { createdAt: 'desc' }, take: 10, ...nfaSelect,
+    });
+    if (nfas.length) pending.push({ type: 'nfa', action: 'NFA — CFO Signature', path: '/nfa', items: nfas.map(n => ({ id: n.id, label: n.nfaNumber, sub: n.indent?.indentNumber || '', path: `/nfa/${n.id}` })) });
+  }
+
+  if (['PRESIDENT_PROJECTS', 'ADMIN'].includes(role)) {
+    const css = await prisma.comparativeStatement.findMany({
+      where: { status: 'USER_VERIFIED' }, orderBy: { createdAt: 'desc' }, take: 10, ...csSelect,
+    });
+    if (css.length) pending.push({ type: 'cs', action: 'CS Final Verification', path: '/comparative', items: css.map(c => ({ id: c.id, label: c.csNumber, sub: c.indent?.indentNumber || '', path: `/comparative/${c.id}` })) });
+
+    const nfas = await prisma.nFA.findMany({
+      where: { status: 'CFO_SIGNED' }, orderBy: { createdAt: 'desc' }, take: 10, ...nfaSelect,
+    });
+    if (nfas.length) pending.push({ type: 'nfa', action: 'NFA — President Signature', path: '/nfa', items: nfas.map(n => ({ id: n.id, label: n.nfaNumber, sub: n.indent?.indentNumber || '', path: `/nfa/${n.id}` })) });
+  }
+
+  if (['EXE_DIRECTOR', 'ADMIN'].includes(role)) {
+    const nfas = await prisma.nFA.findMany({
+      where: { status: 'PRESIDENT_SIGNED' }, orderBy: { createdAt: 'desc' }, take: 10, ...nfaSelect,
+    });
+    if (nfas.length) pending.push({ type: 'nfa', action: 'NFA — Director Signature', path: '/nfa', items: nfas.map(n => ({ id: n.id, label: n.nfaNumber, sub: n.indent?.indentNumber || '', path: `/nfa/${n.id}` })) });
+  }
+
+  if (['MD', 'ADMIN'].includes(role)) {
+    const nfas = await prisma.nFA.findMany({
+      where: { status: 'DIR_SIGNED' }, orderBy: { createdAt: 'desc' }, take: 10, ...nfaSelect,
+    });
+    if (nfas.length) pending.push({ type: 'nfa', action: 'NFA — MD Final Approval', path: '/nfa', items: nfas.map(n => ({ id: n.id, label: n.nfaNumber, sub: n.indent?.indentNumber || '', path: `/nfa/${n.id}` })) });
+  }
+
+  if (['STORE_MANAGER', 'ADMIN'].includes(role)) {
+    const mrns = await prisma.mRN.findMany({
+      where: { status: 'PENDING' }, orderBy: { createdAt: 'desc' }, take: 10,
+      select: { id: true, mrnNumber: true, createdAt: true, purchase: { select: { billNo: true } } },
+    });
+    if (mrns.length) pending.push({ type: 'mrn', action: 'MRN Store Verification', path: '/mrn', items: mrns.map(m => ({ id: m.id, label: m.mrnNumber, sub: m.purchase?.billNo || '', path: `/mrn/${m.id}` })) });
+  }
+
+  const total = pending.reduce((s, g) => s + g.items.length, 0);
+  return { total, groups: pending };
+};
+
+module.exports = { currentStockReport, lowStockReport, supplierPurchaseReport, siteConsumptionReport, dailyPurchaseReport, monthlyUsageReport, getDashboardStats, getMyPending };

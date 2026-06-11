@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { indentsService } from '../../services'
 import { formatDate } from '../../utils/helpers'
 import { useAuth } from '../../context/AuthContext'
-import { ArrowLeft, ClipboardList, CheckCircle, XCircle, PauseCircle, Send, ShoppingCart, FileText } from 'lucide-react'
+import { ArrowLeft, ClipboardList, CheckCircle, XCircle, PauseCircle, Send, ShoppingCart, FileText, Printer } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const STATUS_BADGE = {
@@ -97,6 +97,12 @@ const IndentDetailPage = () => {
 
   const s = indent.status
 
+  const fmtPrint = (date) => {
+    if (!date) return ''
+    const d = new Date(date)
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+  }
+
   return (
     <div className="max-w-5xl">
       <div className="flex items-center gap-4 mb-6">
@@ -134,8 +140,8 @@ const IndentDetailPage = () => {
               <FileText size={14} /> Create Comparative
             </Link>
           )}
-          {isPurchaseHOD && ['NFA', 'PURCHASE_ACCEPTED', 'COMPARATIVE'].includes(s) && (
-            <Link to={`/nfa/new?indentId=${indent.id}`} className="btn btn-sm" style={{background:'#4f46e5',color:'white'}}>
+          {isPurchaseHOD && ['NFA', 'COMPARATIVE'].includes(s) && (
+            <Link to="/nfa/new" className="btn btn-sm" style={{background:'#4f46e5',color:'white'}}>
               <FileText size={14} /> Create NFA
             </Link>
           )}
@@ -144,6 +150,9 @@ const IndentDetailPage = () => {
               <ShoppingCart size={14} /> Create PO
             </Link>
           )}
+          <button onClick={() => window.print()} className="btn-secondary btn-sm flex items-center gap-1">
+            <Printer size={14} /> Print
+          </button>
         </div>
       </div>
 
@@ -286,8 +295,170 @@ const IndentDetailPage = () => {
           </div>
         </div>
       </div>
+
+      {/* ── Print CSS ── */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #indent-print-area, #indent-print-area * { visibility: visible; }
+          #indent-print-area { position: fixed; left: 0; top: 0; width: 100%; padding: 10px; }
+        }
+      `}</style>
+
+      {/* ── Printable Purchase Indent ── */}
+      <div id="indent-print-area" style={{ position: 'absolute', left: '-9999px', visibility: 'hidden' }}>
+        <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px', border: '1.5px solid #000', maxWidth: '100%' }}>
+
+          {/* Company Header */}
+          <table style={{ width: '100%', borderBottom: '1.5px solid #000', borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                <td style={{ width: '80px', padding: '6px 10px', borderRight: '1px solid #000', textAlign: 'center', fontWeight: 'bold', fontSize: '13px' }}>
+                  ORCHID
+                </td>
+                <td style={{ padding: '4px 12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 'bold' }}>ORCHID INFRASTRUCTURE DEVELOPERS PVT. LTD.</div>
+                  <div style={{ fontSize: '10px', marginTop: '2px' }}>Global Arcade, Level-II, M.G. Road, Gurgaon-122002 (Haryana)</div>
+                  <div style={{ fontSize: '10px' }}>Tel.: +91 124 459000, Fax: 91 124 4590009</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Site + No + Dept + Date */}
+          <table style={{ width: '100%', borderBottom: '1px solid #000', borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: '4px 10px', borderRight: '1px solid #000', width: '65%' }}>
+                  <strong>Site Name:</strong> {[indent.project?.projectName, indent.site?.siteName].filter(Boolean).join(' — ')}
+                </td>
+                <td style={{ padding: '4px 10px' }}>
+                  <strong>No.</strong> {indent.indentNumber}
+                </td>
+              </tr>
+              <tr style={{ borderTop: '1px solid #ccc' }}>
+                <td style={{ padding: '4px 10px', borderRight: '1px solid #000' }}>
+                  <strong>Department:</strong> {indent.department || '—'} &nbsp;&nbsp; <strong>Category:</strong> {indent.category || '—'}
+                </td>
+                <td style={{ padding: '4px 10px' }}>
+                  <strong>Date:</strong> {fmtPrint(indent.indentDate || indent.createdAt)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Title */}
+          <div style={{ textAlign: 'center', padding: '4px', fontWeight: 'bold', fontSize: '13px', borderBottom: '1px solid #000', letterSpacing: '1px' }}>
+            PURCHASE INDENT
+          </div>
+          {indent.purpose && (
+            <div style={{ textAlign: 'center', fontSize: '10px', padding: '2px 10px', borderBottom: '1px solid #000', fontStyle: 'italic' }}>
+              {indent.purpose}
+            </div>
+          )}
+
+          {/* Items Table */}
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f0f0f0' }}>
+                <th rowSpan={2} style={th}>Sr.<br/>No.</th>
+                <th rowSpan={2} style={{ ...th, width: '25%' }}>Description / Specification</th>
+                <th rowSpan={2} style={th}>Qty.<br/>Reqd.</th>
+                <th rowSpan={2} style={th}>UOM</th>
+                <th rowSpan={2} style={th}>Delivery<br/>Required by</th>
+                <th rowSpan={2} style={th}>Supply Source<br/>if any</th>
+                <th colSpan={3} style={{ ...th, textAlign: 'center' }}>To be filled up by Store</th>
+                <th rowSpan={2} style={th}>Remarks</th>
+              </tr>
+              <tr style={{ backgroundColor: '#f0f0f0' }}>
+                <th style={th}>Stock in<br/>hand Qty</th>
+                <th style={th}>Last Purchase<br/>rate &amp; Source</th>
+                <th style={th}>PO No.<br/>&amp; Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {indent.items?.map((item, i) => (
+                <tr key={item.id} style={{ borderTop: '1px solid #ccc' }}>
+                  <td style={td}>{i + 1}</td>
+                  <td style={{ ...td, textAlign: 'left' }}>
+                    {item.material?.materialName}
+                    {item.makeSpecifications && <div style={{ fontSize: '10px', color: '#444' }}>{item.makeSpecifications}</div>}
+                  </td>
+                  <td style={td}>{item.requestedQty}</td>
+                  <td style={td}>{item.unit}</td>
+                  <td style={td}></td>
+                  <td style={{ ...td, fontSize: '10px' }}>{item.lastPurchaseFrom || ''}</td>
+                  <td style={td}></td>
+                  <td style={td}></td>
+                  <td style={td}></td>
+                  <td style={{ ...td, fontSize: '10px' }}>{item.remarks || ''}</td>
+                </tr>
+              ))}
+              {/* Blank rows for extra space */}
+              {Array.from({ length: Math.max(0, 5 - (indent.items?.length || 0)) }).map((_, i) => (
+                <tr key={`blank-${i}`} style={{ borderTop: '1px solid #ccc' }}>
+                  {Array.from({ length: 10 }).map((__, j) => <td key={j} style={td}>&nbsp;</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Notes */}
+          <div style={{ borderTop: '1px solid #000', padding: '5px 10px', fontSize: '10px' }}>
+            <strong>Note:</strong>
+            <ol style={{ margin: '2px 0 0 14px', padding: 0 }}>
+              <li>Only one Category of item should be indented in one indent but different size / quality of the same item can be indent together.</li>
+              <li>Reasonable lead time must be allowed, or alternatively in case of an emergency purchase, reason recorded for not allowing lead time.</li>
+              <li>Where necessary, indentor must satisfy himself that budget provision exists.</li>
+              <li>Proper description with complete specification, Etc to be indicated together with IS BS/DIN Iso. nos; whereever applicable.</li>
+            </ol>
+          </div>
+
+          {/* Signatures */}
+          <table style={{ width: '100%', borderTop: '1px solid #000', borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: '20px 10px 6px', borderRight: '1px solid #ccc', width: '33%', verticalAlign: 'bottom' }}>
+                  <div style={{ borderTop: '1px solid #555', paddingTop: '3px', marginTop: '24px', fontSize: '10px' }}>
+                    <strong>Approved by:</strong> {indent.hodApprovedBy?.name || ''}
+                    {indent.hodApprovalDate && <span style={{ marginLeft: '8px' }}>{fmtPrint(indent.hodApprovalDate)}</span>}
+                  </div>
+                </td>
+                <td style={{ padding: '20px 10px 6px', borderRight: '1px solid #ccc', width: '33%', verticalAlign: 'bottom' }}>
+                  <div style={{ borderTop: '1px solid #555', paddingTop: '3px', marginTop: '24px', fontSize: '10px' }}>
+                    {indent.requestedBy?.name}
+                    <div style={{ fontSize: '10px', color: '#666' }}>{fmtPrint(indent.createdAt)}</div>
+                  </div>
+                </td>
+                <td style={{ padding: '20px 10px 6px', verticalAlign: 'bottom', textAlign: 'right' }}>
+                  <div style={{ borderTop: '1px solid #555', paddingTop: '3px', marginTop: '24px', fontSize: '10px' }}>
+                    <strong>Signature</strong>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
+}
+
+// Table cell styles
+const th = {
+  border: '1px solid #999',
+  padding: '4px 5px',
+  textAlign: 'center',
+  fontWeight: '600',
+  fontSize: '10px',
+  lineHeight: '1.3',
+}
+const td = {
+  border: '1px solid #ccc',
+  padding: '4px 5px',
+  textAlign: 'center',
+  fontSize: '11px',
+  verticalAlign: 'top',
 }
 
 export default IndentDetailPage
