@@ -2,8 +2,36 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '../../context/AuthContext'
-import { Eye, EyeOff, Package, BarChart2, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+const STEPS = [
+  {
+    num: '01',
+    title: 'Indent / Requisition',
+    desc: 'Site Engineer raises a material indent. HOD approves and forwards to Purchase department.',
+  },
+  {
+    num: '02',
+    title: 'Comparative Statement',
+    desc: 'Purchase team collects quotes from 3+ suppliers and prepares a comparative statement.',
+  },
+  {
+    num: '03',
+    title: 'NFA — Note for Approval',
+    desc: 'NFA is signed by GM → HOD → CFO → President → Director and approved by MD.',
+  },
+  {
+    num: '04',
+    title: 'Purchase Order',
+    desc: 'PO is auto-generated from the approved NFA with all supplier and item details pre-filled.',
+  },
+  {
+    num: '05',
+    title: 'MRN — Material Receiving',
+    desc: 'Store Manager verifies delivery against the PO and records received quantities in MRN.',
+  },
+]
 
 const LoginPage = () => {
   const { login } = useAuth()
@@ -27,57 +55,58 @@ const LoginPage = () => {
     }
   }
 
-  const features = [
-    { icon: Package, label: 'Material Tracking' },
-    { icon: BarChart2, label: 'Real-time Reports' },
-    { icon: ShieldCheck, label: 'Role-based Access' },
-  ]
-
   return (
     <div className="min-h-screen flex">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary-950 via-primary-900 to-primary-800 p-12 flex-col justify-between">
-        <div>
-          {/* Large centered logo */}
-          <div className="flex flex-col items-center mb-10">
-            <div className="w-36 h-36 rounded-2xl bg-white shadow-xl mb-5 border-4 border-white/20 flex items-center justify-center p-2">
-              <img src="/logo.png" alt="Orchid Logo" className="w-full h-full object-contain" />
-            </div>
-            <h1 className="text-white text-2xl font-bold text-center leading-tight">Orchid Construction</h1>
-            <p className="text-[#c8971f] text-sm font-semibold tracking-widest uppercase mt-1">Inspiration of Life</p>
-            <div className="w-16 h-0.5 bg-[#c8971f] rounded-full mt-3 opacity-70" />
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary-950 via-primary-900 to-primary-800 p-12 flex-col">
+        {/* Logo */}
+        <div className="flex items-center gap-4 mb-10">
+          <div className="w-14 h-14 rounded-xl bg-white shadow-lg border-2 border-white/20 flex items-center justify-center p-1.5 flex-shrink-0">
+            <img src="/logo.png" alt="Orchid Logo" className="w-full h-full object-contain" />
           </div>
-
-          <h2 className="text-3xl font-bold text-white leading-tight mb-3">
-            Complete Construction<br />Inventory Management
-          </h2>
-          <p className="text-primary-200 text-base leading-relaxed mb-8">
-            Track materials, manage stock movements, monitor site consumption, and generate detailed reports — all in one place.
-          </p>
-
-          <div className="space-y-4">
-            {features.map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-3 text-primary-100">
-                <div className="w-8 h-8 bg-primary-700/60 rounded-lg flex items-center justify-center border border-primary-600">
-                  <Icon size={16} />
-                </div>
-                <span className="font-medium">{label}</span>
-              </div>
-            ))}
+          <div>
+            <h1 className="text-white text-lg font-bold leading-tight">Orchid Infrastructure Developers</h1>
+            <p className="text-[#c8971f] text-xs font-semibold tracking-widest uppercase">Inspiration of Life</p>
           </div>
         </div>
 
-        <div className="bg-primary-800/50 rounded-2xl p-6 border border-primary-700">
-          <p className="text-primary-100 text-sm italic leading-relaxed">
-            "Managing inventory across multiple construction sites has never been easier. Full traceability from purchase to site consumption."
-          </p>
-          <div className="mt-3 flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#c8971f] rounded-full flex items-center justify-center text-primary-900 font-bold text-xs">RK</div>
-            <div>
-              <p className="text-white text-sm font-medium">Rajesh Kumar</p>
-              <p className="text-primary-300 text-xs">Store Manager, Orchid Construction</p>
+        {/* Headline */}
+        <h2 className="text-3xl font-bold text-white leading-tight mb-2">
+          Procurement Workflow
+        </h2>
+        <p className="text-primary-300 text-sm mb-8">
+          5-stage approval process — from indent to material delivery
+        </p>
+
+        {/* Steps */}
+        <div className="flex-1 flex flex-col justify-center">
+          <div className="relative">
+            {/* Vertical line */}
+            <div className="absolute left-[19px] top-6 bottom-6 w-px bg-primary-700" />
+
+            <div className="space-y-6">
+              {STEPS.map((step, i) => (
+                <div key={step.num} className="flex gap-4 relative">
+                  {/* Step number circle */}
+                  <div className="w-10 h-10 rounded-full bg-[#c8971f] flex items-center justify-center flex-shrink-0 z-10 shadow-lg">
+                    <span className="text-primary-950 text-xs font-bold">{step.num}</span>
+                  </div>
+                  {/* Content */}
+                  <div className={`pt-1.5 pb-1 ${i < STEPS.length - 1 ? '' : ''}`}>
+                    <p className="text-white font-semibold text-sm leading-tight">{step.title}</p>
+                    <p className="text-primary-300 text-xs mt-0.5 leading-relaxed">{step.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
+        </div>
+
+        {/* Footer tag */}
+        <div className="mt-8 pt-6 border-t border-primary-700/50">
+          <p className="text-primary-400 text-xs">
+            End-to-end construction procurement · Multi-site · Role-based access control
+          </p>
         </div>
       </div>
 
