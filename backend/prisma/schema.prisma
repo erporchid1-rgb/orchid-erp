@@ -188,6 +188,7 @@ model Supplier {
 
   purchases    Purchase[]
   csQuotations CSQuotation[]
+  nfas         NFA[]         @relation("NFASelectedSupplier")
 
   @@map("suppliers")
 }
@@ -364,6 +365,21 @@ model NFA {
   advancePercent     Float?
   draftPOFile        String?
   notes              String?
+
+  // NFA memo fields — matching physical "Note for Approval" format
+  make               String?
+  natureOfWork       String?
+  productDescription String?
+  itemDescription    String?
+  baseAmount         Float     @default(0)
+  cartage            String?
+  gstPercent         Float?
+  gstAmount          Float     @default(0)
+  modeOfPayment      String?
+  lastPurchased      String?
+  quotationDate      DateTime?
+  comparativeDate    DateTime?
+
   status             String    @default("DRAFT")
   createdById        String
 
@@ -391,6 +407,7 @@ model NFA {
 
   indent             Indent                @relation(fields: [indentId], references: [id])
   cs                 ComparativeStatement? @relation(fields: [csId], references: [id])
+  selectedSupplier   Supplier?             @relation("NFASelectedSupplier", fields: [selectedSupplierId], references: [id])
   createdBy          User                  @relation("NFACreatedBy", fields: [createdById], references: [id])
   gmSignedBy         User?                 @relation("NFAGmSignedBy", fields: [gmSignedById], references: [id])
   userSignedBy       User?                 @relation("NFAUserSignedBy", fields: [userSignedById], references: [id])

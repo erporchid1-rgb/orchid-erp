@@ -29,6 +29,7 @@ import ComparativePage from './pages/comparative/ComparativePage'
 import CreateComparativePage from './pages/comparative/CreateComparativePage'
 import NFAPage from './pages/nfa/NFAPage'
 import CreateNFAPage from './pages/nfa/CreateNFAPage'
+import NFADetailPage from './pages/nfa/NFADetailPage'
 import MRNPage from './pages/mrn/MRNPage'
 import CreateMRNPage from './pages/mrn/CreateMRNPage'
 import UsersPage from './pages/users/UsersPage'
@@ -85,6 +86,7 @@ const AppRoutes = () => (
       <Route path="comparative/new" element={<CreateComparativePage />} />
       <Route path="nfa" element={<NFAPage />} />
       <Route path="nfa/new" element={<CreateNFAPage />} />
+      <Route path="nfa/:id" element={<NFADetailPage />} />
       <Route path="mrn" element={<MRNPage />} />
       <Route path="mrn/new" element={<CreateMRNPage />} />
       <Route path="reports/stock" element={<StockReportPage />} />

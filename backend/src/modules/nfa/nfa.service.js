@@ -3,8 +3,15 @@ const { getPagination } = require('../../utils/pagination');
 const { generateNFANumber } = require('../../utils/generateNumber');
 
 const INCLUDE = {
-  indent:            { select: { id: true, indentNumber: true, category: true, department: true } },
-  cs:                { select: { id: true, csNumber: true, status: true } },
+  indent: {
+    select: {
+      id: true, indentNumber: true, category: true, department: true,
+      project: { select: { id: true, projectName: true, location: true } },
+      site:    { select: { id: true, siteName: true, address: true } },
+    },
+  },
+  cs:               { select: { id: true, csNumber: true, status: true } },
+  selectedSupplier: { select: { id: true, supplierName: true, address: true, gstNumber: true } },
   createdBy:         { select: { id: true, name: true } },
   gmSignedBy:        { select: { id: true, name: true } },
   userSignedBy:      { select: { id: true, name: true } },
@@ -58,8 +65,13 @@ const create = async (data, userId) => {
         nfaNumber,
         createdById: userId,
         status: 'DRAFT',
-        totalAmount: parseFloat(data.totalAmount) || 0,
+        baseAmount:     parseFloat(data.baseAmount)     || 0,
+        gstAmount:      parseFloat(data.gstAmount)      || 0,
+        gstPercent:     data.gstPercent  ? parseFloat(data.gstPercent)  : null,
+        totalAmount:    parseFloat(data.totalAmount)    || 0,
         advancePercent: data.advancePercent ? parseFloat(data.advancePercent) : null,
+        quotationDate:  data.quotationDate  ? new Date(data.quotationDate)  : null,
+        comparativeDate: data.comparativeDate ? new Date(data.comparativeDate) : null,
       },
       include: INCLUDE,
     });
