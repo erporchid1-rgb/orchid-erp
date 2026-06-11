@@ -19,10 +19,13 @@ const CreatePurchasePage = () => {
 
   const { register, handleSubmit, watch, setValue, control, formState: { errors } } = useForm({
     defaultValues: {
+      poType: 'PO',
       purchaseDate: new Date().toISOString().split('T')[0],
       status: 'DRAFT',
       transportCost: 0,
       discountAmount: 0,
+      paymentTerms: '',
+      advancePercent: '',
       items: [{ materialId: '', quantity: 1, rate: 0, unit: '', gstPercent: 18 }],
     }
   })
@@ -136,8 +139,17 @@ const CreatePurchasePage = () => {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Header Details */}
         <div className="card">
-          <div className="card-header"><h3 className="font-semibold text-gray-800">Purchase Details</h3></div>
+          <div className="card-header"><h3 className="font-semibold text-gray-800">Purchase Order Details</h3></div>
           <div className="card-body grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="form-group">
+              <label className="label">PO Type *</label>
+              <select {...register('poType')} className="input">
+                <option value="PO">PO — Purchase Order</option>
+                <option value="SPO">SPO — Standing Purchase Order</option>
+                <option value="WO">WO — Work Order</option>
+                <option value="ARC">ARC — Annual Rate Contract</option>
+              </select>
+            </div>
             <div className="form-group">
               <label className="label">Supplier *</label>
               <select {...register('supplierId', { required: 'Required' })} className="input">
@@ -147,15 +159,12 @@ const CreatePurchasePage = () => {
               {errors.supplierId && <p className="error-text">{errors.supplierId.message}</p>}
             </div>
             <div className="form-group">
-              <label className="label">Purchase Date *</label>
+              <label className="label">Order Date *</label>
               <input {...register('purchaseDate', { required: 'Required' })} type="date" className="input" />
             </div>
             <div className="form-group">
-              <label className="label">Status</label>
-              <select {...register('status')} className="input">
-                <option value="DRAFT">Draft</option>
-                <option value="PENDING_APPROVAL">Send for Approval</option>
-              </select>
+              <label className="label">Expected Delivery</label>
+              <input {...register('deliveryDate')} type="date" className="input" />
             </div>
             <div className="form-group">
               <label className="label">Project</label>
@@ -172,6 +181,25 @@ const CreatePurchasePage = () => {
               </select>
             </div>
             <div className="form-group">
+              <label className="label">Payment Terms</label>
+              <input {...register('paymentTerms')} className="input" placeholder="e.g. 30 days / Advance + Balance" />
+            </div>
+            <div className="form-group">
+              <label className="label">Advance (%)</label>
+              <input {...register('advancePercent')} type="number" step="0.01" min="0" max="100" className="input" placeholder="e.g. 20" />
+            </div>
+            <div className="form-group">
+              <label className="label">Status</label>
+              <select {...register('status')} className="input">
+                <option value="DRAFT">Draft</option>
+                <option value="CONFIRMED">Confirm (Place Order)</option>
+              </select>
+            </div>
+            <div className="form-group md:col-span-3">
+              <label className="label">Terms & Conditions</label>
+              <textarea {...register('termsConditions')} className="input" rows={2} placeholder="Special terms, delivery conditions, penalty clauses..." />
+            </div>
+            <div className="form-group md:col-span-3">
               <label className="label">Notes</label>
               <input {...register('notes')} className="input" placeholder="Optional notes..." />
             </div>

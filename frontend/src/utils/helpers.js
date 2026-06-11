@@ -27,13 +27,27 @@ export const getStatusBadge = (status) => {
 }
 
 export const getRoleBadge = (role) => {
-  const map = { ADMIN: 'badge-purple', STORE_MANAGER: 'badge-blue', SITE_ENGINEER: 'badge-green', ACCOUNTANT: 'badge-yellow' }
+  const map = {
+    ADMIN: 'badge-purple', MD: 'badge-red', EXE_DIRECTOR: 'badge-red',
+    PRESIDENT_PROJECTS: 'badge-orange', CFO: 'badge-orange',
+    GM_PURCHASE: 'badge-blue', PURCHASE_HOD: 'badge-blue',
+    USER_HOD: 'badge-blue', INCHARGE: 'badge-yellow',
+    STORE_MANAGER: 'badge-green', FINANCE: 'badge-yellow',
+    ACCOUNTANT: 'badge-yellow', SITE_ENGINEER: 'badge-gray',
+  }
   return map[role] || 'badge-gray'
 }
 
 export const getRoleLabel = (role) => {
-  const map = { ADMIN: 'Admin', STORE_MANAGER: 'Store Manager', SITE_ENGINEER: 'Site Engineer', ACCOUNTANT: 'Accountant' }
-  return map[role] || role
+  const map = {
+    ADMIN: 'Admin', MD: 'MD', EXE_DIRECTOR: 'Exe. Director',
+    PRESIDENT_PROJECTS: 'President — Projects', CFO: 'CFO',
+    GM_PURCHASE: 'GM — Purchase', PURCHASE_HOD: 'Purchase HOD',
+    USER_HOD: 'User HOD', INCHARGE: 'In-charge (MEP/Civil)',
+    STORE_MANAGER: 'Store Manager', FINANCE: 'Finance',
+    ACCOUNTANT: 'Accountant', SITE_ENGINEER: 'Site Engineer',
+  }
+  return map[role] || role?.replace(/_/g, ' ')
 }
 
 export const getMovementTypeLabel = (type) => {

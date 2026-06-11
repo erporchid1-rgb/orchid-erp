@@ -30,24 +30,36 @@ const create = async (req, res, next) => {
   }
 };
 
-const approve = async (req, res, next) => {
+const submitToHOD = async (req, res, next) => {
   try {
-    const indent = await indentsService.approve(req.params.id, req.body.notes, req.user.id);
-    return sendSuccess(res, indent, 'Indent approved');
+    const indent = await indentsService.submitToHOD(req.params.id, req.user.id);
+    return sendSuccess(res, indent, 'Indent submitted to HOD for approval');
   } catch (err) {
     if (err.status) return sendError(res, err.message, err.status);
     next(err);
   }
 };
 
-const reject = async (req, res, next) => {
+const hodAction = async (req, res, next) => {
   try {
-    const indent = await indentsService.reject(req.params.id, req.body.notes, req.user.id);
-    return sendSuccess(res, indent, 'Indent rejected');
+    const { action, notes } = req.body;
+    const indent = await indentsService.hodAction(req.params.id, action, notes, req.user.id);
+    return sendSuccess(res, indent, `Indent ${action}d by HOD`);
   } catch (err) {
     if (err.status) return sendError(res, err.message, err.status);
     next(err);
   }
 };
 
-module.exports = { getAll, getById, create, approve, reject };
+const purchaseHodAction = async (req, res, next) => {
+  try {
+    const { action, notes } = req.body;
+    const indent = await indentsService.purchaseHodAction(req.params.id, action, notes, req.user.id);
+    return sendSuccess(res, indent, `Indent ${action}ed by Purchase HOD`);
+  } catch (err) {
+    if (err.status) return sendError(res, err.message, err.status);
+    next(err);
+  }
+};
+
+module.exports = { getAll, getById, create, submitToHOD, hodAction, purchaseHodAction };

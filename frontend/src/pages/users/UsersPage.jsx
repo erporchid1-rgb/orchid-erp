@@ -9,7 +9,11 @@ import { Plus, Edit2, Trash2, Users } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
-const ROLES = ['ADMIN', 'STORE_MANAGER', 'SITE_ENGINEER', 'ACCOUNTANT']
+const ROLES = [
+  'ADMIN', 'MD', 'EXE_DIRECTOR', 'PRESIDENT_PROJECTS', 'CFO',
+  'GM_PURCHASE', 'PURCHASE_HOD', 'USER_HOD', 'INCHARGE',
+  'STORE_MANAGER', 'FINANCE', 'ACCOUNTANT', 'SITE_ENGINEER',
+]
 
 const UsersPage = () => {
   const { user: currentUser } = useAuth()

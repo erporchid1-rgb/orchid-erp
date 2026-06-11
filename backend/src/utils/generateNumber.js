@@ -44,4 +44,40 @@ const generateIndentNumber = async () => {
   return `${prefix}${String(count + 1).padStart(4, '0')}`;
 };
 
-module.exports = { generateBillNumber, generateIssueNumber, generateTransferNumber, generateIndentNumber };
+const generateCSNumber = async () => {
+  const today = new Date();
+  const year  = today.getFullYear().toString().slice(-2);
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const prefix = `CS-${year}${month}-`;
+  const count = await prisma.comparativeStatement.count({ where: { csNumber: { startsWith: prefix } } });
+  return `${prefix}${String(count + 1).padStart(4, '0')}`;
+};
+
+const generateNFANumber = async () => {
+  const today = new Date();
+  const year  = today.getFullYear().toString().slice(-2);
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const prefix = `NFA-${year}${month}-`;
+  // eslint-disable-next-line no-unused-vars
+  const count = await prisma.nFA.count({ where: { nfaNumber: { startsWith: prefix } } });
+  return `${prefix}${String(count + 1).padStart(4, '0')}`;
+};
+
+const generateMRNNumber = async () => {
+  const today = new Date();
+  const year  = today.getFullYear().toString().slice(-2);
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const prefix = `MRN-${year}${month}-`;
+  const count = await prisma.mRN.count({ where: { mrnNumber: { startsWith: prefix } } });
+  return `${prefix}${String(count + 1).padStart(4, '0')}`;
+};
+
+module.exports = {
+  generateBillNumber,
+  generateIssueNumber,
+  generateTransferNumber,
+  generateIndentNumber,
+  generateCSNumber,
+  generateNFANumber,
+  generateMRNNumber,
+};

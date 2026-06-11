@@ -87,13 +87,16 @@ const create = async (data, userId) => {
       data: {
         ...purchaseData,
         billNo,
-        orderedById: userId,
+        orderedById:    userId,
+        poType:         purchaseData.poType         || 'PO',
         subtotal,
         gstAmount:      totalGst,
         totalAmount,
         transportCost:  parseFloat(purchaseData.transportCost)  || 0,
         discountAmount: parseFloat(purchaseData.discountAmount) || 0,
         paidAmount:     parseFloat(purchaseData.paidAmount)     || 0,
+        advancePercent: purchaseData.advancePercent ? parseFloat(purchaseData.advancePercent) : null,
+        deliveryDate:   purchaseData.deliveryDate   ? new Date(purchaseData.deliveryDate)     : null,
         items: { create: processedItems },
       },
       include: {
@@ -112,6 +115,22 @@ const create = async (data, userId) => {
 
     if (purchaseData.status === 'RECEIVED') {
       await createStockMovementsForPurchase(tx, newPurchase, purchaseData.projectId, purchaseData.siteId);
+    }
+
+    // Notify user dept + finance when PO is confirmed
+    if (purchaseData.status === 'CONFIRMED') {
+      const usersToNotify = await tx.user.findMany({
+        where: { role: { in: ['USER_HOD', 'FINANCE', 'PURCHASE_HOD'] }, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      await tx.notification.createMany({
+        data: usersToNotify.map((u) => ({
+          userId:  u.id,
+          title:   `Purchase Order Placed: ${billNo}`,
+          message: `A new ${purchaseData.poType || 'PO'} has been placed. Bill No: ${billNo}`,
+          type:    'PURCHASE',
+        })),
+      });
     }
 
     return newPurchase;

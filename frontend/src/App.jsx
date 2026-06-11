@@ -25,6 +25,12 @@ import CreateTransferPage from './pages/transfers/CreateTransferPage'
 import IndentsPage from './pages/indents/IndentsPage'
 import CreateIndentPage from './pages/indents/CreateIndentPage'
 import IndentDetailPage from './pages/indents/IndentDetailPage'
+import ComparativePage from './pages/comparative/ComparativePage'
+import CreateComparativePage from './pages/comparative/CreateComparativePage'
+import NFAPage from './pages/nfa/NFAPage'
+import CreateNFAPage from './pages/nfa/CreateNFAPage'
+import MRNPage from './pages/mrn/MRNPage'
+import CreateMRNPage from './pages/mrn/CreateMRNPage'
 import UsersPage from './pages/users/UsersPage'
 import ProfilePage from './pages/auth/ProfilePage'
 import NotificationsPage from './pages/notifications/NotificationsPage'
@@ -75,6 +81,12 @@ const AppRoutes = () => (
       <Route path="indents" element={<IndentsPage />} />
       <Route path="indents/new" element={<CreateIndentPage />} />
       <Route path="indents/:id" element={<IndentDetailPage />} />
+      <Route path="comparative" element={<ComparativePage />} />
+      <Route path="comparative/new" element={<CreateComparativePage />} />
+      <Route path="nfa" element={<NFAPage />} />
+      <Route path="nfa/new" element={<CreateNFAPage />} />
+      <Route path="mrn" element={<MRNPage />} />
+      <Route path="mrn/new" element={<CreateMRNPage />} />
       <Route path="reports/stock" element={<StockReportPage />} />
       <Route path="reports/purchases" element={<PurchaseReportPage />} />
       <Route path="reports/consumption" element={<ConsumptionReportPage />} />

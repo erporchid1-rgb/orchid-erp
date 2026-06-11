@@ -7,31 +7,27 @@ async function main() {
   console.log('🌱 Seeding database...');
 
   // ── Users ────────────────────────────────────────────────────────────────────
-  const adminPass     = await bcrypt.hash('Admin@123', 12);
-  const storePass     = await bcrypt.hash('Store@123', 12);
-  const engineerPass  = await bcrypt.hash('Engineer@123', 12);
-  const accountPass   = await bcrypt.hash('Account@123', 12);
+  const pass = (p) => bcrypt.hash(p, 12);
 
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@orchidconstruction.com' },
-    update: {},
-    create: { name: 'System Admin',   email: 'admin@orchidconstruction.com',      mobile: '9876543210', password: adminPass,    role: 'ADMIN',         status: 'ACTIVE' },
-  });
-  const store = await prisma.user.upsert({
-    where: { email: 'store@orchidconstruction.com' },
-    update: {},
-    create: { name: 'Rajesh Kumar',   email: 'store@orchidconstruction.com',      mobile: '9876543211', password: storePass,    role: 'STORE_MANAGER', status: 'ACTIVE' },
-  });
-  const engineer = await prisma.user.upsert({
-    where: { email: 'engineer@orchidconstruction.com' },
-    update: {},
-    create: { name: 'Amit Sharma',    email: 'engineer@orchidconstruction.com',   mobile: '9876543212', password: engineerPass, role: 'SITE_ENGINEER', status: 'ACTIVE' },
-  });
-  await prisma.user.upsert({
-    where: { email: 'accountant@orchidconstruction.com' },
-    update: {},
-    create: { name: 'Priya Patel',    email: 'accountant@orchidconstruction.com', mobile: '9876543213', password: accountPass,  role: 'ACCOUNTANT',    status: 'ACTIVE' },
-  });
+  const users = [
+    { email: 'admin@orchidconstruction.com',        name: 'System Admin',         role: 'ADMIN',              password: await pass('Admin@123'),       mobile: '9876543210', department: null },
+    { email: 'md@orchidconstruction.com',           name: 'Vikram Mehta',         role: 'MD',                 password: await pass('Md@123'),          mobile: '9876543220', department: null },
+    { email: 'director@orchidconstruction.com',     name: 'Suresh Gupta',         role: 'EXE_DIRECTOR',       password: await pass('Director@123'),    mobile: '9876543221', department: null },
+    { email: 'president@orchidconstruction.com',    name: 'Anand Verma',          role: 'PRESIDENT_PROJECTS', password: await pass('President@123'),   mobile: '9876543222', department: 'Projects' },
+    { email: 'cfo@orchidconstruction.com',          name: 'Neha Agarwal',         role: 'CFO',                password: await pass('Cfo@123'),         mobile: '9876543223', department: 'Finance' },
+    { email: 'gm.purchase@orchidconstruction.com',  name: 'Deepak Joshi',         role: 'GM_PURCHASE',        password: await pass('GmPurchase@123'),  mobile: '9876543224', department: 'Purchase' },
+    { email: 'purchase.hod@orchidconstruction.com', name: 'Rahul Singh',          role: 'PURCHASE_HOD',       password: await pass('PurchaseHod@123'), mobile: '9876543225', department: 'Purchase' },
+    { email: 'user.hod@orchidconstruction.com',     name: 'Sanjay Mishra',        role: 'USER_HOD',           password: await pass('UserHod@123'),     mobile: '9876543226', department: 'Engineering' },
+    { email: 'incharge@orchidconstruction.com',     name: 'Mohan Yadav',          role: 'INCHARGE',           password: await pass('Incharge@123'),    mobile: '9876543227', department: 'Civil' },
+    { email: 'store@orchidconstruction.com',        name: 'Rajesh Kumar',         role: 'STORE_MANAGER',      password: await pass('Store@123'),       mobile: '9876543211', department: 'Store' },
+    { email: 'finance@orchidconstruction.com',      name: 'Kavita Sharma',        role: 'FINANCE',            password: await pass('Finance@123'),     mobile: '9876543228', department: 'Finance' },
+    { email: 'accountant@orchidconstruction.com',   name: 'Priya Patel',          role: 'ACCOUNTANT',         password: await pass('Account@123'),     mobile: '9876543213', department: 'Finance' },
+    { email: 'engineer@orchidconstruction.com',     name: 'Amit Sharma',          role: 'SITE_ENGINEER',      password: await pass('Engineer@123'),    mobile: '9876543212', department: 'Engineering' },
+  ];
+
+  for (const u of users) {
+    await prisma.user.upsert({ where: { email: u.email }, update: {}, create: { ...u, status: 'ACTIVE' } });
+  }
 
   // ── Categories ───────────────────────────────────────────────────────────────
   const categoryData = [
@@ -174,10 +170,18 @@ async function main() {
 
   console.log('✅ Seed completed successfully');
   console.log('\n👤 Default Users:');
-  console.log('  Admin:      admin@orchidconstruction.com      / Admin@123');
-  console.log('  Store Mgr:  store@orchidconstruction.com      / Store@123');
-  console.log('  Engineer:   engineer@orchidconstruction.com   / Engineer@123');
-  console.log('  Accountant: accountant@orchidconstruction.com / Account@123');
+  console.log('  admin@orchidconstruction.com        / Admin@123       (ADMIN)');
+  console.log('  md@orchidconstruction.com           / Md@123          (MD)');
+  console.log('  director@orchidconstruction.com     / Director@123    (EXE_DIRECTOR)');
+  console.log('  president@orchidconstruction.com    / President@123   (PRESIDENT_PROJECTS)');
+  console.log('  cfo@orchidconstruction.com          / Cfo@123         (CFO)');
+  console.log('  gm.purchase@orchidconstruction.com  / GmPurchase@123  (GM_PURCHASE)');
+  console.log('  purchase.hod@orchidconstruction.com / PurchaseHod@123 (PURCHASE_HOD)');
+  console.log('  user.hod@orchidconstruction.com     / UserHod@123     (USER_HOD)');
+  console.log('  incharge@orchidconstruction.com     / Incharge@123    (INCHARGE)');
+  console.log('  store@orchidconstruction.com        / Store@123       (STORE_MANAGER)');
+  console.log('  finance@orchidconstruction.com      / Finance@123     (FINANCE)');
+  console.log('  engineer@orchidconstruction.com     / Engineer@123    (SITE_ENGINEER)');
   console.log('\n📦 Demo Data:');
   console.log('  15 Categories, 45 Materials, 5 Suppliers');
   console.log('  Project: Orchid Ivy → Sites: Orchid Ivy 1, Orchid Ivy 2');

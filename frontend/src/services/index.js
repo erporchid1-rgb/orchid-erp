@@ -44,8 +44,43 @@ export const indentsService = {
   getAll: (params) => api.get('/indents', { params }),
   getById: (id) => api.get(`/indents/${id}`),
   create: (data) => api.post('/indents', data),
-  approve: (id, notes) => api.patch(`/indents/${id}/approve`, { notes }),
-  reject: (id, notes) => api.patch(`/indents/${id}/reject`, { notes }),
+  submitToHOD: (id) => api.patch(`/indents/${id}/submit`),
+  hodAction: (id, action, notes) => api.patch(`/indents/${id}/hod-action`, { action, notes }),
+  purchaseAction: (id, action, notes) => api.patch(`/indents/${id}/purchase-action`, { action, notes }),
+}
+
+export const comparativeService = {
+  getAll: (params) => api.get('/comparative', { params }),
+  getById: (id) => api.get(`/comparative/${id}`),
+  create: (data) => api.post('/comparative', data),
+  addQuotation: (id, data) => api.post(`/comparative/${id}/quotations`, data),
+  uploadQuotationFile: (id, quotationId, formData) =>
+    api.post(`/comparative/${id}/quotations/${quotationId}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  selectSupplier: (id, supplierId) => api.patch(`/comparative/${id}/select-supplier`, { supplierId }),
+  hodRecommend: (id, notes) => api.patch(`/comparative/${id}/hod-recommend`, { notes }),
+  userVerify: (id) => api.patch(`/comparative/${id}/user-verify`),
+  presidentVerify: (id) => api.patch(`/comparative/${id}/president-verify`),
+}
+
+export const nfaService = {
+  getAll: (params) => api.get('/nfa', { params }),
+  getById: (id) => api.get(`/nfa/${id}`),
+  create: (data) => api.post('/nfa', data),
+  uploadDraftPO: (id, formData) =>
+    api.post(`/nfa/${id}/upload-draft-po`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  sign: (id, action) => api.patch(`/nfa/${id}/sign`, { action }),
+  mdAction: (id, action, notes) => api.patch(`/nfa/${id}/md-action`, { action, notes }),
+}
+
+export const mrnService = {
+  getAll: (params) => api.get('/mrn', { params }),
+  getById: (id) => api.get(`/mrn/${id}`),
+  create: (data) => api.post('/mrn', data),
+  uploadDocument: (id, docType, formData) =>
+    api.post(`/mrn/${id}/documents`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, params: { docType } }),
+  storeVerify: (id) => api.patch(`/mrn/${id}/store-verify`),
+  purchaseVerify: (id) => api.patch(`/mrn/${id}/purchase-verify`),
+  closePO: (id) => api.patch(`/mrn/${id}/close-po`),
 }
 
 export const stockService = {

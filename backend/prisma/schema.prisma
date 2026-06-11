@@ -3,27 +3,31 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 // ─────────────────────────────────────────
 // USERS & AUTH
+// Roles: ADMIN | MD | EXE_DIRECTOR | PRESIDENT_PROJECTS | CFO | GM_PURCHASE
+//        PURCHASE_HOD | USER_HOD | INCHARGE | STORE_MANAGER | FINANCE
+//        ACCOUNTANT | SITE_ENGINEER
 // ─────────────────────────────────────────
 
 model User {
-  id               String    @id @default(uuid())
-  name             String
-  email            String    @unique
-  mobile           String?
-  password         String
-  role             String    @default("SITE_ENGINEER")
-  status           String    @default("ACTIVE")
-  avatar           String?
-  lastLoginAt      DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  deletedAt        DateTime?
+  id          String    @id @default(uuid())
+  name        String
+  email       String    @unique
+  mobile      String?
+  password    String
+  role        String    @default("SITE_ENGINEER")
+  department  String?
+  status      String    @default("ACTIVE")
+  avatar      String?
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
 
   purchases         Purchase[]      @relation("PurchaseCreatedBy")
   purchasesApproved Purchase[]      @relation("PurchaseApprovedBy")
@@ -32,7 +36,25 @@ model User {
   transfersCreated  StockTransfer[] @relation("TransferCreatedBy")
   notifications     Notification[]
   indentsRequested  Indent[]        @relation("IndentRequestedBy")
-  indentsApproved   Indent[]        @relation("IndentApprovedBy")
+  indentsHodBy      Indent[]        @relation("IndentHodApprovedBy")
+  indentsPurchaseBy Indent[]        @relation("IndentPurchaseApprovedBy")
+
+  csCreated             ComparativeStatement[] @relation("CSCreatedBy")
+  csHodRecommended      ComparativeStatement[] @relation("CSHodRecommendedBy")
+  csUserVerified        ComparativeStatement[] @relation("CSUserVerifiedBy")
+  csPresidentVerified   ComparativeStatement[] @relation("CSPresidentVerifiedBy")
+
+  nfaCreated         NFA[] @relation("NFACreatedBy")
+  nfaGmSigned        NFA[] @relation("NFAGmSignedBy")
+  nfaUserSigned      NFA[] @relation("NFAUserSignedBy")
+  nfaCfoSigned       NFA[] @relation("NFACfoSignedBy")
+  nfaPresidentSigned NFA[] @relation("NFAPresidentSignedBy")
+  nfaDirSigned       NFA[] @relation("NFADirSignedBy")
+  nfaMdApproved      NFA[] @relation("NFAMdApprovedBy")
+
+  mrnCreated          MRN[] @relation("MRNCreatedBy")
+  mrnStoreVerified    MRN[] @relation("MRNStoreVerifiedBy")
+  mrnPurchaseVerified MRN[] @relation("MRNPurchaseVerifiedBy")
 
   @@map("users")
 }
@@ -108,7 +130,7 @@ model Category {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  materials   Material[]
+  materials Material[]
 
   @@map("categories")
 }
@@ -125,12 +147,14 @@ model Material {
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  category       Category            @relation(fields: [categoryId], references: [id])
-  purchaseItems  PurchaseItem[]
+  category      Category            @relation(fields: [categoryId], references: [id])
+  purchaseItems PurchaseItem[]
   stockMovements StockMovement[]
-  issueItems     StockIssueItem[]
-  transferItems  StockTransferItem[]
-  indentItems    IndentItem[]
+  issueItems    StockIssueItem[]
+  transferItems StockTransferItem[]
+  indentItems   IndentItem[]
+  csItems       CSItem[]
+  mrnItems      MRNItem[]
 
   @@map("materials")
 }
@@ -150,54 +174,93 @@ model Supplier {
   bankAccount  String?
   bankIfsc     String?
   bankName     String?
+  // KYC documents
+  panFile      String?
+  gstFile      String?
+  chequeFile   String?
+  msmeFile     String?
+  otherKycFile String?
+  kycStatus    String    @default("PENDING")
   isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
-  purchases Purchase[]
+  purchases    Purchase[]
+  csQuotations CSQuotation[]
 
   @@map("suppliers")
 }
 
 // ─────────────────────────────────────────
 // INDENTS / REQUISITIONS
+// Status flow:
+//   DRAFT
+//   → HOD_PENDING      (submitted to HOD of User Dept)
+//   → HOD_APPROVED / HOD_REJECTED / HOD_HOLD
+//   → PURCHASE_PENDING (forwarded to Purchase HOD)
+//   → PURCHASE_ACCEPTED / PURCHASE_RETURNED / PURCHASE_HOLD
+//   → COMPARATIVE      (comparative statement in progress)
+//   → NFA              (NFA in progress)
+//   → PO_CREATED       (PO placed)
+//   → CLOSED
 // ─────────────────────────────────────────
 
 model Indent {
-  id             String      @id @default(uuid())
-  indentNumber   String      @unique
+  id             String    @id @default(uuid())
+  indentNumber   String    @unique
+  indentDate     DateTime  @default(now())
   projectId      String?
   siteId         String?
   requestedById  String
+  category       String?   // Civil / MEP / HK
+  department     String?   // Engg / Finance / Marketing / IT / HR
   requiredDate   DateTime
   purpose        String?
   remarks        String?
-  status         String      @default("PENDING")
-  approvedById   String?
-  approvalNotes  String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  storeSignature String?
+  inchargeSignature String?
 
-  project     Project?     @relation(fields: [projectId], references: [id])
-  site        Site?        @relation(fields: [siteId], references: [id])
-  requestedBy User         @relation("IndentRequestedBy", fields: [requestedById], references: [id])
-  approvedBy  User?        @relation("IndentApprovedBy", fields: [approvedById], references: [id])
-  items       IndentItem[]
-  purchases   Purchase[]
+  // Level-1: HOD of User Dept
+  status              String    @default("DRAFT")
+  hodApprovedById     String?
+  hodApprovalNotes    String?
+  hodApprovalDate     DateTime?
+  hodHoldReason       String?
+
+  // Level-2: Purchase HOD
+  purchaseApprovedById  String?
+  purchaseApprovalNotes String?
+  purchaseApprovalDate  DateTime?
+  purchaseHoldReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project          Project?      @relation(fields: [projectId], references: [id])
+  site             Site?         @relation(fields: [siteId], references: [id])
+  requestedBy      User          @relation("IndentRequestedBy", fields: [requestedById], references: [id])
+  hodApprovedBy    User?         @relation("IndentHodApprovedBy", fields: [hodApprovedById], references: [id])
+  purchaseApprovedBy User?       @relation("IndentPurchaseApprovedBy", fields: [purchaseApprovedById], references: [id])
+  items            IndentItem[]
+  purchases        Purchase[]
+  comparativeStatements ComparativeStatement[]
+  nfas             NFA[]
 
   @@map("indents")
 }
 
 model IndentItem {
-  id           String   @id @default(uuid())
-  indentId     String
-  materialId   String
-  requestedQty Float
-  unit         String
-  remarks      String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(uuid())
+  indentId          String
+  materialId        String
+  requestedQty      Float
+  unit              String
+  makeSpecifications String?
+  lastPurchaseFrom  String?
+  remarks           String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   indent   Indent   @relation(fields: [indentId], references: [id], onDelete: Cascade)
   material Material @relation(fields: [materialId], references: [id])
@@ -206,18 +269,157 @@ model IndentItem {
 }
 
 // ─────────────────────────────────────────
-// PURCHASES
-// Statuses: DRAFT → PENDING_APPROVAL → APPROVED/REJECTED → CONFIRMED → RECEIVED
+// COMPARATIVE STATEMENT
+// Status flow:
+//   DRAFT → HOD_RECOMMENDED → USER_VERIFIED → FINAL_VERIFIED
+// ─────────────────────────────────────────
+
+model ComparativeStatement {
+  id          String    @id @default(uuid())
+  csNumber    String    @unique
+  indentId    String
+  createdById String
+  poWithoutCS Boolean   @default(false)
+  notes       String?
+  status      String    @default("DRAFT")
+
+  hodRecommendedById  String?
+  hodRecommendedAt    DateTime?
+  hodNotes            String?
+
+  userVerifiedById    String?
+  userVerifiedAt      DateTime?
+
+  presidentVerifiedById String?
+  presidentVerifiedAt   DateTime?
+
+  selectedSupplierId  String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  indent              Indent       @relation(fields: [indentId], references: [id])
+  createdBy           User         @relation("CSCreatedBy", fields: [createdById], references: [id])
+  hodRecommendedBy    User?        @relation("CSHodRecommendedBy", fields: [hodRecommendedById], references: [id])
+  userVerifiedBy      User?        @relation("CSUserVerifiedBy", fields: [userVerifiedById], references: [id])
+  presidentVerifiedBy User?        @relation("CSPresidentVerifiedBy", fields: [presidentVerifiedById], references: [id])
+  quotations          CSQuotation[]
+  items               CSItem[]
+  nfas                NFA[]
+
+  @@map("comparative_statements")
+}
+
+model CSQuotation {
+  id             String    @id @default(uuid())
+  csId           String
+  supplierId     String
+  quotationFile  String?
+  quotationDate  DateTime?
+  totalAmount    Float?
+  remarks        String?
+  isSelected     Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+
+  cs       ComparativeStatement @relation(fields: [csId], references: [id], onDelete: Cascade)
+  supplier Supplier             @relation(fields: [supplierId], references: [id])
+
+  @@map("cs_quotations")
+}
+
+model CSItem {
+  id           String   @id @default(uuid())
+  csId         String
+  materialId   String
+  qty          Float
+  unit         String
+  supplier1Rate Float?
+  supplier2Rate Float?
+  supplier3Rate Float?
+  selectedRate  Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  cs       ComparativeStatement @relation(fields: [csId], references: [id], onDelete: Cascade)
+  material Material             @relation(fields: [materialId], references: [id])
+
+  @@map("cs_items")
+}
+
+// ─────────────────────────────────────────
+// NFA — NOTE FOR APPROVAL (& Draft PO)
+// Status flow:
+//   DRAFT → GM_SIGNED → USER_SIGNED → CFO_SIGNED
+//         → PRESIDENT_SIGNED → DIR_SIGNED
+//         → MD_APPROVED / MD_REJECTED / MD_HOLD
+// ─────────────────────────────────────────
+
+model NFA {
+  id                 String    @id @default(uuid())
+  nfaNumber          String    @unique
+  indentId           String
+  csId               String?
+  selectedSupplierId String?
+  totalAmount        Float     @default(0)
+  paymentTerms       String?
+  advancePercent     Float?
+  draftPOFile        String?
+  notes              String?
+  status             String    @default("DRAFT")
+  createdById        String
+
+  gmSignedById        String?
+  gmSignedAt          DateTime?
+
+  userSignedById      String?
+  userSignedAt        DateTime?
+
+  cfoSignedById       String?
+  cfoSignedAt         DateTime?
+
+  presidentSignedById String?
+  presidentSignedAt   DateTime?
+
+  dirSignedById       String?
+  dirSignedAt         DateTime?
+
+  mdApprovedById      String?
+  mdApprovedAt        DateTime?
+  mdNotes             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  indent             Indent                @relation(fields: [indentId], references: [id])
+  cs                 ComparativeStatement? @relation(fields: [csId], references: [id])
+  createdBy          User                  @relation("NFACreatedBy", fields: [createdById], references: [id])
+  gmSignedBy         User?                 @relation("NFAGmSignedBy", fields: [gmSignedById], references: [id])
+  userSignedBy       User?                 @relation("NFAUserSignedBy", fields: [userSignedById], references: [id])
+  cfoSignedBy        User?                 @relation("NFACfoSignedBy", fields: [cfoSignedById], references: [id])
+  presidentSignedBy  User?                 @relation("NFAPresidentSignedBy", fields: [presidentSignedById], references: [id])
+  dirSignedBy        User?                 @relation("NFADirSignedBy", fields: [dirSignedById], references: [id])
+  mdApprovedBy       User?                 @relation("NFAMdApprovedBy", fields: [mdApprovedById], references: [id])
+  purchases          Purchase[]
+
+  @@map("nfas")
+}
+
+// ─────────────────────────────────────────
+// PURCHASES / PURCHASE ORDERS
+// poType: PO | SPO | WO | ARC
+// Statuses: DRAFT → PENDING_APPROVAL → APPROVED/REJECTED → CONFIRMED → RECEIVED → CLOSED
 // ─────────────────────────────────────────
 
 model Purchase {
   id                String    @id @default(uuid())
   billNo            String    @unique
+  poType            String    @default("PO")
   supplierId        String
   projectId         String?
   siteId            String?
   indentId          String?
+  nfaId             String?
   purchaseDate      DateTime
+  deliveryDate      DateTime?
   receivedDate      DateTime?
   transportCost     Float     @default(0)
   discountAmount    Float     @default(0)
@@ -225,6 +427,9 @@ model Purchase {
   subtotal          Float     @default(0)
   totalAmount       Float     @default(0)
   paidAmount        Float     @default(0)
+  paymentTerms      String?
+  advancePercent    Float?
+  termsConditions   String?
   invoiceFile       String?
   quotation1File    String?
   quotation2File    String?
@@ -243,10 +448,12 @@ model Purchase {
   project        Project?       @relation(fields: [projectId], references: [id])
   site           Site?          @relation(fields: [siteId], references: [id])
   indent         Indent?        @relation(fields: [indentId], references: [id])
+  nfa            NFA?           @relation(fields: [nfaId], references: [id])
   orderedBy      User           @relation("PurchaseCreatedBy", fields: [orderedById], references: [id])
   approvedBy     User?          @relation("PurchaseApprovedBy", fields: [approvedById], references: [id])
   items          PurchaseItem[]
   stockMovements StockMovement[]
+  mrns           MRN[]
 
   @@map("purchases")
 }
@@ -271,11 +478,89 @@ model PurchaseItem {
 }
 
 // ─────────────────────────────────────────
+// MRN — MATERIALS RECEIVING NOTE
+// receiptType: PURCHASE | GATE_PASS | NRGP | SITE_TRANSFER
+// status: DRAFT → COMPLETE | PARTIAL | EXCESS | RATE_DIFF
+// ─────────────────────────────────────────
+
+model MRN {
+  id              String    @id @default(uuid())
+  mrnNumber       String    @unique
+  purchaseId      String?
+  receiptType     String    @default("PURCHASE")
+  mrnDate         DateTime
+  vehicleDetails  String?
+  invoiceDate     DateTime?
+  invoiceNo       String?
+  ewayBillNo      String?
+  status          String    @default("DRAFT")
+  remarks         String?
+  createdById     String
+
+  storeVerifiedById    String?
+  storeVerifiedAt      DateTime?
+  storeSignature       String?
+
+  userVerifiedById     String?
+  userVerifiedAt       DateTime?
+  userSignature        String?
+
+  purchaseHodVerifiedById String?
+  purchaseHodVerifiedAt   DateTime?
+
+  forwardedToFinance  Boolean  @default(false)
+  poClosed            Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  purchase             Purchase?     @relation(fields: [purchaseId], references: [id])
+  createdBy            User          @relation("MRNCreatedBy", fields: [createdById], references: [id])
+  storeVerifiedBy      User?         @relation("MRNStoreVerifiedBy", fields: [storeVerifiedById], references: [id])
+  purchaseHodVerifiedBy User?        @relation("MRNPurchaseVerifiedBy", fields: [purchaseHodVerifiedById], references: [id])
+  items                MRNItem[]
+  documents            MRNDocument[]
+
+  @@map("mrns")
+}
+
+model MRNItem {
+  id           String   @id @default(uuid())
+  mrnId        String
+  materialId   String
+  poQty        Float
+  receivedQty  Float
+  rejectedQty  Float    @default(0)
+  unit         String
+  poRate       Float    @default(0)
+  receivedRate Float?
+  remarks      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  mrn      MRN      @relation(fields: [mrnId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id])
+
+  @@map("mrn_items")
+}
+
+model MRNDocument {
+  id         String   @id @default(uuid())
+  mrnId      String
+  docType    String   // INVOICE | CN | WEIGHT_SLIP | MTC | BILTY | OTHER
+  fileName   String
+  uploadedAt DateTime @default(now())
+
+  mrn MRN @relation(fields: [mrnId], references: [id], onDelete: Cascade)
+
+  @@map("mrn_documents")
+}
+
+// ─────────────────────────────────────────
 // STOCK LEDGER
 // ─────────────────────────────────────────
 
 model StockMovement {
-  id            String    @id @default(uuid())
+  id            String   @id @default(uuid())
   materialId    String
   projectId     String?
   siteId        String?
@@ -289,9 +574,10 @@ model StockMovement {
   purchaseId    String?
   issueId       String?
   transferId    String?
+  mrnId         String?
   remarks       String?
-  movementDate  DateTime  @default(now())
-  createdAt     DateTime  @default(now())
+  movementDate  DateTime @default(now())
+  createdAt     DateTime @default(now())
 
   material Material  @relation(fields: [materialId], references: [id])
   project  Project?  @relation(fields: [projectId], references: [id])
@@ -309,8 +595,8 @@ model StockMovement {
 // ─────────────────────────────────────────
 
 model StockIssue {
-  id           String    @id @default(uuid())
-  issueNumber  String    @unique
+  id           String   @id @default(uuid())
+  issueNumber  String   @unique
   projectId    String?
   siteId       String?
   issueDate    DateTime
@@ -318,10 +604,10 @@ model StockIssue {
   issuedById   String
   approvedById String?
   purpose      String?
-  status       String    @default("PENDING")
+  status       String   @default("PENDING")
   remarks      String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   project    Project?         @relation(fields: [projectId], references: [id])
   site       Site?            @relation(fields: [siteId], references: [id])
@@ -353,19 +639,19 @@ model StockIssueItem {
 // ─────────────────────────────────────────
 
 model StockTransfer {
-  id             String    @id @default(uuid())
-  transferNumber String    @unique
+  id             String   @id @default(uuid())
+  transferNumber String   @unique
   fromProjectId  String?
   fromSiteId     String?
   toProjectId    String?
   toSiteId       String?
   transferDate   DateTime
-  status         String    @default("PENDING")
+  status         String   @default("PENDING")
   createdById    String
   reason         String?
   remarks        String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   fromProject Project?            @relation("TransferFromProject", fields: [fromProjectId], references: [id])
   fromSite    Site?               @relation("TransferFromSite", fields: [fromSiteId], references: [id])
@@ -378,13 +664,13 @@ model StockTransfer {
 }
 
 model StockTransferItem {
-  id          String   @id @default(uuid())
-  transferId  String
-  materialId  String
-  quantity    Float
-  unit        String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(uuid())
+  transferId String
+  materialId String
+  quantity   Float
+  unit       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   transfer StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
   material Material      @relation(fields: [materialId], references: [id])
@@ -397,14 +683,14 @@ model StockTransferItem {
 // ─────────────────────────────────────────
 
 model Notification {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   userId    String
   title     String
   message   String
-  type      String    @default("SYSTEM")
-  isRead    Boolean   @default(false)
+  type      String   @default("SYSTEM")
+  isRead    Boolean  @default(false)
   data      String?
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 

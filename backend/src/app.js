@@ -23,6 +23,9 @@ const transfersRoutes = require('./modules/transfers/transfers.routes');
 const reportsRoutes = require('./modules/reports/reports.routes');
 const notificationsRoutes = require('./modules/notifications/notifications.routes');
 const indentsRoutes = require('./modules/indents/indents.routes');
+const comparativeRoutes = require('./modules/comparative/comparative.routes');
+const nfaRoutes = require('./modules/nfa/nfa.routes');
+const mrnRoutes = require('./modules/mrn/mrn.routes');
 
 const app = express();
 
@@ -74,6 +77,9 @@ app.use(`${API}/transfers`, transfersRoutes);
 app.use(`${API}/reports`, reportsRoutes);
 app.use(`${API}/notifications`, notificationsRoutes);
 app.use(`${API}/indents`, indentsRoutes);
+app.use(`${API}/comparative`, comparativeRoutes);
+app.use(`${API}/nfa`, nfaRoutes);
+app.use(`${API}/mrn`, mrnRoutes);
 
 // ── Error Handling ────────────────────────────────────────────────────────────
 app.use(notFoundHandler);

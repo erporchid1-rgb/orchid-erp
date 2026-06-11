@@ -3,37 +3,47 @@ import { useAuth } from '../../context/AuthContext'
 import {
   LayoutDashboard, FolderKanban, MapPin, Package, Users, ShoppingCart,
   Warehouse, TruckIcon, BarChart2, Bell, Settings,
-  ClipboardList, ChevronDown, ChevronRight, X
+  ClipboardList, ChevronDown, ChevronRight, X, FileCheck, Scale, Truck
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn as clsx } from '../../utils/cn'
 
+const PURCHASE_ROLES = ['ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'STORE_MANAGER', 'ACCOUNTANT', 'FINANCE']
+const SENIOR_ROLES   = ['ADMIN', 'MD', 'EXE_DIRECTOR', 'PRESIDENT_PROJECTS', 'CFO', 'GM_PURCHASE',
+                         'PURCHASE_HOD', 'USER_HOD', 'FINANCE']
+
 const NAV_ITEMS = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/projects', icon: FolderKanban, label: 'Projects' },
-  { path: '/sites', icon: MapPin, label: 'Sites / Blocks' },
-  { path: '/materials', icon: Package, label: 'Material Master' },
-  { path: '/suppliers', icon: TruckIcon, label: 'Suppliers' },
-  { path: '/indents', icon: ClipboardList, label: 'Indents / Requisitions' },
-  { path: '/purchases', icon: ShoppingCart, label: 'Purchases', roles: ['ADMIN', 'STORE_MANAGER', 'ACCOUNTANT'] },
+  { path: '/projects',  icon: FolderKanban,    label: 'Projects' },
+  { path: '/sites',     icon: MapPin,           label: 'Sites / Blocks' },
+  { path: '/materials', icon: Package,          label: 'Material Master' },
+  { path: '/suppliers', icon: TruckIcon,        label: 'Suppliers' },
+  // ─── Procurement Workflow ─────────────────────────────────────────────────
+  { path: '/indents',      icon: ClipboardList, label: 'Indent / Requisition' },
+  { path: '/comparative',  icon: Scale,         label: 'Comparative Statement', roles: PURCHASE_ROLES },
+  { path: '/nfa',          icon: FileCheck,     label: 'NFA — Note for Approval', roles: SENIOR_ROLES },
+  { path: '/purchases',    icon: ShoppingCart,  label: 'Purchase Orders', roles: PURCHASE_ROLES },
+  { path: '/mrn',          icon: Truck,         label: 'MRN — Receiving Note', roles: [...PURCHASE_ROLES, 'INCHARGE', 'SITE_ENGINEER'] },
+  // ─── Inventory ────────────────────────────────────────────────────────────
   {
     label: 'Inventory',
     icon: Warehouse,
     children: [
-      { path: '/stock', label: 'Current Stock' },
-      { path: '/issues', label: 'Material Issues' },
+      { path: '/stock',     label: 'Current Stock' },
+      { path: '/issues',    label: 'Material Issues' },
       { path: '/transfers', label: 'Stock Transfers' },
     ],
   },
+  // ─── Reports ─────────────────────────────────────────────────────────────
   {
     label: 'Reports',
     icon: BarChart2,
     children: [
-      { path: '/reports/stock', label: 'Stock Report' },
-      { path: '/reports/purchases', label: 'Purchase Report' },
+      { path: '/reports/stock',       label: 'Stock Report' },
+      { path: '/reports/purchases',   label: 'Purchase Report' },
       { path: '/reports/consumption', label: 'Consumption' },
-      { path: '/reports/low-stock', label: 'Low Stock' },
-      { path: '/reports/monthly', label: 'Monthly Usage' },
+      { path: '/reports/low-stock',   label: 'Low Stock' },
+      { path: '/reports/monthly',     label: 'Monthly Usage' },
     ],
   },
   { path: '/users', icon: Users, label: 'Users', roles: ['ADMIN'] },
