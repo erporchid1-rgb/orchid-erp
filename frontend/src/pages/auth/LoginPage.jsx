@@ -174,12 +174,27 @@ const LoginPage = () => {
             </form>
 
             {/* Demo credentials */}
-            <div className="mt-6 p-4 bg-primary-50 rounded-xl border border-primary-100">
-              <p className="text-xs font-semibold text-primary-700 mb-2">Demo Credentials</p>
-              <div className="space-y-1.5 text-xs text-primary-600">
-                <p>Admin: <span className="font-mono font-semibold">admin@orchidconstruction.com</span> / <span className="font-mono">Admin@123</span></p>
-                <p>Store: <span className="font-mono font-semibold">store@orchidconstruction.com</span> / <span className="font-mono">Store@123</span></p>
-                <p className="text-gray-400 text-[10px] pt-1 border-t border-primary-100">Run <span className="font-mono">node prisma/seed.js</span> in backend to create these accounts</p>
+            <div className="mt-6 p-3 bg-primary-50 rounded-xl border border-primary-100">
+              <p className="text-xs font-bold text-primary-700 mb-2">Demo Credentials</p>
+              <div className="space-y-1 text-[11px] text-primary-700">
+                {[
+                  ['Admin',            'admin@orchidconstruction.com',       'Admin@123'],
+                  ['MD',               'md@orchidconstruction.com',          'Md@123'],
+                  ['Exe. Director',    'director@orchidconstruction.com',    'Director@123'],
+                  ['President',        'president@orchidconstruction.com',   'President@123'],
+                  ['CFO',              'cfo@orchidconstruction.com',         'Cfo@123'],
+                  ['GM Purchase',      'gm.purchase@orchidconstruction.com', 'GmPurchase@123'],
+                  ['Purchase HOD',     'purchase.hod@orchidconstruction.com','PurchaseHod@123'],
+                  ['User HOD',         'user.hod@orchidconstruction.com',    'UserHod@123'],
+                  ['Store Manager',    'store@orchidconstruction.com',       'Store@123'],
+                  ['Site Engineer',    'engineer@orchidconstruction.com',    'Engineer@123'],
+                ].map(([role, email, pass]) => (
+                  <div key={role} className="flex items-center justify-between gap-2 py-0.5 border-b border-primary-100 last:border-0">
+                    <span className="text-primary-500 w-24 flex-shrink-0">{role}</span>
+                    <span className="font-mono text-primary-700 truncate flex-1">{email}</span>
+                    <span className="font-mono font-semibold text-primary-900 flex-shrink-0">{pass}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
