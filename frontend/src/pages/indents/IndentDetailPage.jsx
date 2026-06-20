@@ -298,17 +298,16 @@ const IndentDetailPage = () => {
 
       {/* ── Print CSS ── */}
       <style>{`
-        #indent-print-area { display: none; }
         @media print {
           body * { visibility: hidden !important; }
-          #indent-print-area { display: block !important; visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; background: white; z-index: 99999; padding: 0; margin: 0; }
+          #indent-print-area { visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; background: white; z-index: 99999; padding: 0; margin: 0; }
           #indent-print-area * { visibility: visible !important; }
         }
       `}</style>
 
-      {/* ── Printable Purchase Indent ── */}
-      <div id="indent-print-area">
-        <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px', border: '2px solid #000', margin: '8mm', boxSizing: 'border-box' }}>
+      {/* ── Purchase Indent Document (visible on screen + printable) ── */}
+      <div id="indent-print-area" className="mt-6 bg-white shadow-lg rounded-lg overflow-hidden">
+        <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px', border: '2px solid #000', boxSizing: 'border-box' }}>
 
           {/* Company Header */}
           <table style={{ width: '100%', borderBottom: '2px solid #000', borderCollapse: 'collapse' }}>
