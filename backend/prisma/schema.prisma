@@ -318,8 +318,12 @@ model CSQuotation {
   csId           String
   supplierId     String
   quotationFile  String?
+  quotationRef   String?
   quotationDate  DateTime?
   totalAmount    Float?
+  gstPercent     Float?
+  deliveryDays   Int?
+  warranty       String?
   remarks        String?
   isSelected     Boolean   @default(false)
   createdAt      DateTime  @default(now())
@@ -331,14 +335,16 @@ model CSQuotation {
 }
 
 model CSItem {
-  id           String   @id @default(uuid())
-  csId         String
-  materialId   String
-  qty          Float
-  unit         String
+  id            String   @id @default(uuid())
+  csId          String
+  materialId    String
+  qty           Float
+  unit          String
+  specification String?
   supplier1Rate Float?
   supplier2Rate Float?
   supplier3Rate Float?
+  supplier4Rate Float?
   selectedRate  Float?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
