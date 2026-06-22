@@ -270,6 +270,15 @@ const NFADetailPage = () => {
     nfa.comparativeDate ? `Comparative dated ${fmt(nfa.comparativeDate)}` : '',
   ].filter(Boolean).join(', ')
 
+  const MEMO_TYPE_LABEL = {
+    PO_MEMO: 'Work / Purchase Order Memo',
+    SITC:    'SITC',
+    AMC:     'AMC',
+    CAMC:    'CAMC',
+    SPO:     'SPO',
+  }
+  const memoTypeLabel = MEMO_TYPE_LABEL[nfa.memoType] || 'Work / Purchase Order Memo'
+
   // Steps for signing progress timeline
   const STEPS = [
     { label: 'GM — Purchase',       who: nfa.gmSignedBy,        at: nfa.gmSignedAt,        sig: nfa.gmSignature },
@@ -476,7 +485,7 @@ const NFADetailPage = () => {
                 M/s Orchid Infrastructure Developers Pvt. Ltd.
               </div>
               <div style={{ fontSize: '16px', fontWeight: 'bold', marginTop: '2px' }}>
-                Note for Approval — Work / Purchase Order Memo
+                Note for Approval — {memoTypeLabel}
               </div>
             </div>
             <div style={{ textAlign: 'right', fontSize: '12px', flexShrink: 0, marginLeft: '20px' }}>
@@ -491,15 +500,23 @@ const NFADetailPage = () => {
             <div>{nfa.indent?.indentNumber || '—'}</div>
           </div>
 
-          {/* Project/Site + Make */}
+          {/* Project/Site + Make + Area of Use */}
           <div style={{ borderBottom: '1px solid #ccc', display: 'flex' }}>
             <div style={{ flex: 3, borderRight: '1px solid #ccc', padding: '5px 16px', display: 'flex' }}>
               <div style={{ fontWeight: '600', flexShrink: 0, width: '150px' }}>Project / Site Name:</div>
               <div>{projectSite || '—'}</div>
             </div>
-            <div style={{ flex: 2, padding: '5px 16px', display: 'flex' }}>
-              <div style={{ fontWeight: '600', flexShrink: 0, width: '60px' }}>Make:</div>
-              <div>{nfa.make || '—'}</div>
+            <div style={{ flex: 2, padding: '5px 16px' }}>
+              <div style={{ display: 'flex', marginBottom: '2px' }}>
+                <div style={{ fontWeight: '600', flexShrink: 0, width: '60px' }}>Make:</div>
+                <div>{nfa.make || '—'}</div>
+              </div>
+              {nfa.areaOfUse && (
+                <div style={{ display: 'flex' }}>
+                  <div style={{ fontWeight: '600', flexShrink: 0, width: '90px', fontSize: '11px' }}>Area of Use:</div>
+                  <div style={{ fontSize: '11px' }}>{nfa.areaOfUse}</div>
+                </div>
+              )}
             </div>
           </div>
 

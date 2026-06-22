@@ -27,6 +27,8 @@ const CreateNFAPage = () => {
       indentId:          '',
       csId:              '',
       selectedSupplierId:'',
+      memoType:          'PO_MEMO',
+      areaOfUse:         '',
       make:              '',
       natureOfWork:      '',
       productDescription:'',
@@ -76,6 +78,8 @@ const CreateNFAPage = () => {
       indentId:           indent.id || '',
       csId:               cs.id,
       selectedSupplierId: selectedQ?.supplierId || '',
+      memoType:           'PO_MEMO',
+      areaOfUse:          '',
       make:               '',
       natureOfWork,
       productDescription: '',
@@ -244,10 +248,22 @@ const CreateNFAPage = () => {
         <input type="hidden" {...register('indentId')} />
         <input type="hidden" {...register('csId')} />
 
-        {/* ── Section 1: Project & Supplier ── */}
+        {/* ── Section 1: Memo Type + Project & Supplier ── */}
         <div className="card">
-          <div className="card-header"><h3 className="font-semibold text-gray-800">Project & Supplier</h3></div>
+          <div className="card-header"><h3 className="font-semibold text-gray-800">NFA Type & Project</h3></div>
           <div className="card-body grid grid-cols-2 gap-4">
+
+            {/* Memo Type */}
+            <div className="col-span-2 form-group">
+              <label className="label">Note for Approval — Type *</label>
+              <select {...register('memoType')} className="input font-medium">
+                <option value="PO_MEMO">Work / Purchase Order Memo</option>
+                <option value="SITC">SITC (Site Instruction to Contractor)</option>
+                <option value="AMC">AMC (Annual Maintenance Contract)</option>
+                <option value="CAMC">CAMC (Comprehensive Annual Maintenance Contract)</option>
+                <option value="SPO">SPO (Special Purchase Order)</option>
+              </select>
+            </div>
 
             {/* Project / Site — read only */}
             <div className="form-group">
@@ -257,6 +273,11 @@ const CreateNFAPage = () => {
             <div className="form-group">
               <label className="label">Site / Block</label>
               <input value={indent.site?.siteName || '—'} className="input bg-gray-50" readOnly />
+            </div>
+
+            <div className="form-group">
+              <label className="label">Area of Use</label>
+              <input {...register('areaOfUse')} className="input" placeholder="e.g. Electrical / Civil / Plumbing" />
             </div>
 
             {/* Supplier — pre-selected from CS, but can change to another quoted supplier */}

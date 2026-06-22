@@ -370,6 +370,8 @@ model NFA {
   notes              String?
 
   // NFA memo fields — matching physical "Note for Approval" format
+  memoType           String?   @default("PO_MEMO")  // PO_MEMO | SITC | AMC | CAMC | SPO
+  areaOfUse          String?
   make               String?
   natureOfWork       String?
   productDescription String?
