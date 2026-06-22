@@ -68,7 +68,7 @@ const CreateIndentPage = () => {
             <ArrowLeft size={15} /> Back
           </button>
           <h1 className="page-title flex items-center gap-2"><ClipboardList size={24} /> Raise Material Indent</h1>
-          <p className="page-subtitle">Fill all required fields including Store & In-charge signatures before submitting</p>
+          <p className="page-subtitle">Fill all required fields and add materials before submitting</p>
         </div>
       </div>
 
@@ -118,14 +118,6 @@ const CreateIndentPage = () => {
               <input {...register('purpose')} className="input" placeholder="e.g. Foundation work - Block A" />
             </div>
 
-            <div className="form-group">
-              <label className="label">Store Signature</label>
-              <input {...register('storeSignature')} className="input" placeholder="Store person name" />
-            </div>
-            <div className="form-group">
-              <label className="label">MEP / Civil In-charge Signature</label>
-              <input {...register('inchargeSignature')} className="input" placeholder="In-charge name" />
-            </div>
             <div className="form-group">
               <label className="label">Remarks</label>
               <input {...register('remarks')} className="input" placeholder="Any special notes..." />
