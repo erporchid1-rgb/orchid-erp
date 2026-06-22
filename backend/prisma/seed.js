@@ -10,23 +10,23 @@ async function main() {
   const pass = (p) => bcrypt.hash(p, 12);
 
   const users = [
-    { email: 'admin@orchidconstruction.com',        name: 'System Admin',         role: 'ADMIN',              password: await pass('Admin@123'),       mobile: '9876543210', department: null },
-    { email: 'md@orchidconstruction.com',           name: 'Vikram Mehta',         role: 'MD',                 password: await pass('Md@123'),          mobile: '9876543220', department: null },
-    { email: 'director@orchidconstruction.com',     name: 'Suresh Gupta',         role: 'EXE_DIRECTOR',       password: await pass('Director@123'),    mobile: '9876543221', department: null },
-    { email: 'president@orchidconstruction.com',    name: 'Anand Verma',          role: 'PRESIDENT_PROJECTS', password: await pass('President@123'),   mobile: '9876543222', department: 'Projects' },
-    { email: 'cfo@orchidconstruction.com',          name: 'Neha Agarwal',         role: 'CFO',                password: await pass('Cfo@123'),         mobile: '9876543223', department: 'Finance' },
-    { email: 'gm.purchase@orchidconstruction.com',  name: 'Deepak Joshi',         role: 'GM_PURCHASE',        password: await pass('GmPurchase@123'),  mobile: '9876543224', department: 'Purchase' },
-    { email: 'purchase.hod@orchidconstruction.com', name: 'Rahul Singh',          role: 'PURCHASE_HOD',       password: await pass('PurchaseHod@123'), mobile: '9876543225', department: 'Purchase' },
-    { email: 'user.hod@orchidconstruction.com',     name: 'Sanjay Mishra',        role: 'USER_HOD',           password: await pass('UserHod@123'),     mobile: '9876543226', department: 'Engineering' },
-    { email: 'incharge@orchidconstruction.com',     name: 'Mohan Yadav',          role: 'INCHARGE',           password: await pass('Incharge@123'),    mobile: '9876543227', department: 'Civil' },
-    { email: 'store@orchidconstruction.com',        name: 'Rajesh Kumar',         role: 'STORE_MANAGER',      password: await pass('Store@123'),       mobile: '9876543211', department: 'Store' },
-    { email: 'finance@orchidconstruction.com',      name: 'Kavita Sharma',        role: 'FINANCE',            password: await pass('Finance@123'),     mobile: '9876543228', department: 'Finance' },
-    { email: 'accountant@orchidconstruction.com',   name: 'Priya Patel',          role: 'ACCOUNTANT',         password: await pass('Account@123'),     mobile: '9876543213', department: 'Finance' },
-    { email: 'engineer@orchidconstruction.com',     name: 'Amit Sharma',          role: 'SITE_ENGINEER',      password: await pass('Engineer@123'),    mobile: '9876543212', department: 'Engineering' },
+    { email: 'admin@orchidconstruction.com',        name: 'Mr. Vikrant Shekhawat', role: 'ADMIN',              password: await pass('Admin@123'),       mobile: '9876543210', department: null },
+    { email: 'md@orchidconstruction.com',           name: 'Shree Dhruv Gupta',     role: 'MD',                 password: await pass('Md@123'),          mobile: '9876543220', department: null },
+    { email: 'director@orchidconstruction.com',     name: 'Mr. Anil Behl',         role: 'EXE_DIRECTOR',       password: await pass('Director@123'),    mobile: '9876543221', department: null },
+    { email: 'president@orchidconstruction.com',    name: 'Mr. Arun Nijhawan',     role: 'PRESIDENT_PROJECTS', password: await pass('President@123'),   mobile: '9876543222', department: 'Projects' },
+    { email: 'cfo@orchidconstruction.com',          name: 'Mr. Ashish Gupta',      role: 'CFO',                password: await pass('Cfo@123'),         mobile: '9876543223', department: 'Finance' },
+    { email: 'gm.purchase@orchidconstruction.com',  name: 'Mr. Sumit',             role: 'GM_PURCHASE',        password: await pass('GmPurchase@123'),  mobile: '9876543224', department: 'Purchase' },
+    { email: 'purchase.hod@orchidconstruction.com', name: 'Gagan Bhandari',        role: 'PURCHASE_HOD',       password: await pass('PurchaseHod@123'), mobile: '9876543225', department: 'Purchase' },
+    { email: 'user.hod@orchidconstruction.com',     name: 'Sanjay Mishra',         role: 'USER_HOD',           password: await pass('UserHod@123'),     mobile: '9876543226', department: 'Engineering' },
+    { email: 'incharge@orchidconstruction.com',     name: 'Mohan Yadav',           role: 'INCHARGE',           password: await pass('Incharge@123'),    mobile: '9876543227', department: 'Civil' },
+    { email: 'store@orchidconstruction.com',        name: 'Rajesh Kumar',          role: 'STORE_MANAGER',      password: await pass('Store@123'),       mobile: '9876543211', department: 'Store' },
+    { email: 'finance@orchidconstruction.com',      name: 'Kavita Sharma',         role: 'FINANCE',            password: await pass('Finance@123'),     mobile: '9876543228', department: 'Finance' },
+    { email: 'accountant@orchidconstruction.com',   name: 'Priya Patel',           role: 'ACCOUNTANT',         password: await pass('Account@123'),     mobile: '9876543213', department: 'Finance' },
+    { email: 'engineer@orchidconstruction.com',     name: 'Amit Sharma',           role: 'SITE_ENGINEER',      password: await pass('Engineer@123'),    mobile: '9876543212', department: 'Engineering' },
   ];
 
   for (const u of users) {
-    await prisma.user.upsert({ where: { email: u.email }, update: {}, create: { ...u, status: 'ACTIVE' } });
+    await prisma.user.upsert({ where: { email: u.email }, update: { name: u.name }, create: { ...u, status: 'ACTIVE' } });
   }
 
   // ── Categories ───────────────────────────────────────────────────────────────
