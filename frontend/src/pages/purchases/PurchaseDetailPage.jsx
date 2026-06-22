@@ -226,6 +226,9 @@ const PurchaseDetailPage = () => {
               <div className="flex justify-between"><span className="text-gray-600">Subtotal (ex-GST)</span><span>{formatCurrency(baseTotal)}</span></div>
               {transport > 0 && <div className="flex justify-between"><span className="text-gray-600">Transport</span><span>{formatCurrency(transport)}</span></div>}
               <div className="flex justify-between"><span className="text-gray-600">GST</span><span>{formatCurrency(gstTotal)}</span></div>
+              {parseFloat(purchase.discountAmount) > 0 && (
+                <div className="flex justify-between text-red-600"><span>Discount</span><span>- {formatCurrency(purchase.discountAmount)}</span></div>
+              )}
               <div className="flex justify-between font-bold text-base pt-2 border-t"><span>Grand Total</span><span className="text-primary-700">{formatCurrency(purchase.totalAmount)}</span></div>
             </div>
           </div>
@@ -341,10 +344,21 @@ const PurchaseDetailPage = () => {
               {/* GST */}
               <tr style={{ borderBottom: '1px solid #ccc' }}>
                 <td colSpan={5} style={{ padding: '4px 8px', textAlign: 'right', borderRight: '1px solid #ccc' }}>
-                  GST @ {purchase.items?.[0]?.gstPercent ?? 18}%
+                  {(() => {
+                    const pcts = [...new Set((purchase.items||[]).map(i => i.gstPercent).filter(Boolean))]
+                    return pcts.length === 1 ? `GST @ ${pcts[0]}%` : `GST`
+                  })()}
                 </td>
                 <td style={{ padding: '4px 8px', textAlign: 'right' }}>₹{fmtAmt(gstTotal)}/-</td>
               </tr>
+
+              {/* Discount */}
+              {parseFloat(purchase.discountAmount) > 0 && (
+                <tr style={{ borderBottom: '1px solid #ccc' }}>
+                  <td colSpan={5} style={{ padding: '4px 8px', textAlign: 'right', borderRight: '1px solid #ccc' }}>Discount</td>
+                  <td style={{ padding: '4px 8px', textAlign: 'right', color: '#dc2626' }}>- ₹{fmtAmt(purchase.discountAmount)}/-</td>
+                </tr>
+              )}
 
               {/* Grand Total */}
               <tr style={{ borderTop: '2px solid #000', borderBottom: '2px solid #000' }}>

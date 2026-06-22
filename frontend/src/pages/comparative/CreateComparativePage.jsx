@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useForm, useFieldArray } from 'react-hook-form'
+import { useForm, useFieldArray, useWatch } from 'react-hook-form'
 import { comparativeService, indentsService, suppliersService } from '../../services'
 import { BarChart2, Plus, Trash2, ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+const fmtAmt = (v) => v != null && v !== '' && !isNaN(v)
+  ? new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)
+  : '—'
 
 const CreateComparativePage = () => {
   const navigate = useNavigate()
@@ -24,6 +28,22 @@ const CreateComparativePage = () => {
 
   const { fields: qFields, append: qAppend, remove: qRemove } = useFieldArray({ control, name: 'quotations' })
   const { fields: iFields, append: iAppend, remove: iRemove } = useFieldArray({ control, name: 'items' })
+
+  const watchedItems = useWatch({ control, name: 'items' })
+
+  const getAmt = (itemIdx, rateKey) => {
+    const item = watchedItems?.[itemIdx]
+    if (!item) return null
+    const qty  = parseFloat(item.qty) || 0
+    const rate = parseFloat(item[rateKey]) || 0
+    return qty && rate ? qty * rate : null
+  }
+  const colTotal = (rateKey) =>
+    (watchedItems || []).reduce((s, item) => {
+      const qty  = parseFloat(item?.qty) || 0
+      const rate = parseFloat(item?.[rateKey]) || 0
+      return s + (qty * rate)
+    }, 0)
 
   const indentId = searchParams.get('indentId')
 
@@ -149,48 +169,102 @@ const CreateComparativePage = () => {
           <div className="card">
             <div className="card-header">
               <h3 className="font-semibold text-gray-800">Rate Comparison by Item</h3>
+              <p className="text-xs text-gray-400">Amount = Qty × Rate (auto-calculated)</p>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-3 py-2.5 text-xs font-semibold text-gray-500 text-left">Material</th>
-                    <th className="px-3 py-2.5 text-xs font-semibold text-gray-500 text-left">Qty</th>
-                    <th className="px-3 py-2.5 text-xs font-semibold text-gray-500 text-left">UoM</th>
-                    <th className="px-3 py-2.5 text-xs font-semibold text-gray-500 text-left">Supplier 1 Rate</th>
-                    <th className="px-3 py-2.5 text-xs font-semibold text-gray-500 text-left">Supplier 2 Rate</th>
-                    <th className="px-3 py-2.5 text-xs font-semibold text-gray-500 text-left">Supplier 3 Rate</th>
-                    <th className="px-3 py-2.5 text-xs font-semibold text-gray-500 text-left">Selected Rate</th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-gray-500">Qty</th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-gray-500">UoM</th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-blue-600 text-center" colSpan={2}>Supplier 1</th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-green-600 text-center" colSpan={2}>Supplier 2</th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-amber-600 text-center" colSpan={2}>Supplier 3</th>
+                    <th className="px-3 py-2.5 text-xs font-semibold text-purple-600 text-center" colSpan={2}>Selected</th>
+                  </tr>
+                  <tr className="bg-gray-50 border-b">
+                    <th colSpan={3} />
+                    {['blue','green','amber','purple'].map(c => (
+                      <>
+                        <th key={c+'r'} className={`px-2 py-1.5 text-xs font-medium text-${c}-500 text-right`}>Rate</th>
+                        <th key={c+'a'} className={`px-2 py-1.5 text-xs font-medium text-${c}-500 text-right border-r border-gray-200`}>Amount</th>
+                      </>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {iFields.map((field, idx) => (
-                    <tr key={field.id}>
-                      <td className="px-3 py-2 text-sm font-medium">
-                        {indent?.items?.[idx]?.material?.materialName || `Item ${idx + 1}`}
-                        <input type="hidden" {...register(`items.${idx}.materialId`)} />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input {...register(`items.${idx}.qty`)} type="number" step="0.001" className="input py-1.5 w-20" />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input {...register(`items.${idx}.unit`)} className="input py-1.5 w-16 bg-gray-50" readOnly />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input {...register(`items.${idx}.supplier1Rate`)} type="number" step="0.01" className="input py-1.5 w-28" placeholder="Rate" />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input {...register(`items.${idx}.supplier2Rate`)} type="number" step="0.01" className="input py-1.5 w-28" placeholder="Rate" />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input {...register(`items.${idx}.supplier3Rate`)} type="number" step="0.01" className="input py-1.5 w-28" placeholder="Rate" />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input {...register(`items.${idx}.selectedRate`)} type="number" step="0.01" className="input py-1.5 w-28 border-green-300 bg-green-50" placeholder="Final" />
-                      </td>
-                    </tr>
-                  ))}
+                  {iFields.map((field, idx) => {
+                    const a1 = getAmt(idx, 'supplier1Rate')
+                    const a2 = getAmt(idx, 'supplier2Rate')
+                    const a3 = getAmt(idx, 'supplier3Rate')
+                    const aS = getAmt(idx, 'selectedRate')
+                    return (
+                      <tr key={field.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 font-medium text-gray-800">
+                          {indent?.items?.[idx]?.material?.materialName || `Item ${idx + 1}`}
+                          <input type="hidden" {...register(`items.${idx}.materialId`)} />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input {...register(`items.${idx}.qty`)} type="number" step="0.001" className="input py-1 w-20 text-center" />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input {...register(`items.${idx}.unit`)} className="input py-1 w-14 bg-gray-50 text-center" readOnly />
+                        </td>
+                        {/* Supplier 1 */}
+                        <td className="px-2 py-2">
+                          <input {...register(`items.${idx}.supplier1Rate`)} type="number" step="0.01" className="input py-1 w-24 border-blue-200" placeholder="Rate" />
+                        </td>
+                        <td className="px-2 py-2 text-right text-blue-700 font-medium border-r border-gray-200 min-w-[90px]">
+                          {a1 != null ? `₹${fmtAmt(a1)}` : '—'}
+                        </td>
+                        {/* Supplier 2 */}
+                        <td className="px-2 py-2">
+                          <input {...register(`items.${idx}.supplier2Rate`)} type="number" step="0.01" className="input py-1 w-24 border-green-200" placeholder="Rate" />
+                        </td>
+                        <td className="px-2 py-2 text-right text-green-700 font-medium border-r border-gray-200 min-w-[90px]">
+                          {a2 != null ? `₹${fmtAmt(a2)}` : '—'}
+                        </td>
+                        {/* Supplier 3 */}
+                        <td className="px-2 py-2">
+                          <input {...register(`items.${idx}.supplier3Rate`)} type="number" step="0.01" className="input py-1 w-24 border-amber-200" placeholder="Rate" />
+                        </td>
+                        <td className="px-2 py-2 text-right text-amber-700 font-medium border-r border-gray-200 min-w-[90px]">
+                          {a3 != null ? `₹${fmtAmt(a3)}` : '—'}
+                        </td>
+                        {/* Selected */}
+                        <td className="px-2 py-2">
+                          <input {...register(`items.${idx}.selectedRate`)} type="number" step="0.01" className="input py-1 w-24 border-purple-300 bg-purple-50" placeholder="Final" />
+                        </td>
+                        <td className="px-2 py-2 text-right text-purple-700 font-bold min-w-[90px]">
+                          {aS != null ? `₹${fmtAmt(aS)}` : '—'}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
+                {/* Totals row */}
+                <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                  <tr>
+                    <td colSpan={3} className="px-3 py-2 text-xs font-bold text-gray-700">TOTAL</td>
+                    <td className="px-2 py-2" />
+                    <td className="px-2 py-2 text-right font-bold text-blue-700 border-r border-gray-200">
+                      {colTotal('supplier1Rate') > 0 ? `₹${fmtAmt(colTotal('supplier1Rate'))}` : '—'}
+                    </td>
+                    <td className="px-2 py-2" />
+                    <td className="px-2 py-2 text-right font-bold text-green-700 border-r border-gray-200">
+                      {colTotal('supplier2Rate') > 0 ? `₹${fmtAmt(colTotal('supplier2Rate'))}` : '—'}
+                    </td>
+                    <td className="px-2 py-2" />
+                    <td className="px-2 py-2 text-right font-bold text-amber-700 border-r border-gray-200">
+                      {colTotal('supplier3Rate') > 0 ? `₹${fmtAmt(colTotal('supplier3Rate'))}` : '—'}
+                    </td>
+                    <td className="px-2 py-2" />
+                    <td className="px-2 py-2 text-right font-bold text-purple-700">
+                      {colTotal('selectedRate') > 0 ? `₹${fmtAmt(colTotal('selectedRate'))}` : '—'}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
