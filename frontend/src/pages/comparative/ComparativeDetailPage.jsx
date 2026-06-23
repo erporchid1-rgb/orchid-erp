@@ -1,17 +1,16 @@
-import { Fragment, useState, useEffect, useCallback } from 'react'
+import { Fragment, useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { comparativeService, materialsService } from '../../services'
 import { useAuth } from '../../context/AuthContext'
 import {
   ArrowLeft, BarChart2, CheckCircle, Printer,
-  Star, ThumbsUp, MessageSquare, RefreshCw, User, Pencil,
-  Edit3, Save, X, Plus, Trash2,
+  Star, ThumbsUp, MessageSquare, RefreshCw, User, Save,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const STATUS_BADGE  = { DRAFT:'badge badge-gray', HOD_RECOMMENDED:'badge badge-blue', USER_VERIFIED:'badge badge-yellow', FINAL_VERIFIED:'badge badge-green' }
 const STATUS_LABEL  = { DRAFT:'Draft', HOD_RECOMMENDED:'HOD Recommended', USER_VERIFIED:'User Verified', FINAL_VERIFIED:'Final Verified' }
-const SUP_BG        = ['#dbeafe','#dcfce7','#fef3c7','#fce7f3']   // blue / green / amber / pink
+const SUP_BG        = ['#dbeafe','#dcfce7','#fef3c7','#fce7f3']
 
 const fmtD = (d) => {
   if (!d) return ''
@@ -21,13 +20,24 @@ const fmtD = (d) => {
 const fmtAmt = (v) =>
   v != null ? new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) : '—'
 
-/* ── inline styles for print table ────────────────────────────────────────── */
 const B  = '1px solid #aaa'
 const BH = '1px solid #000'
 const th = (extra={}) => ({ border:B, padding:'4px 6px', textAlign:'center', fontWeight:'700', fontSize:'10px', backgroundColor:'#e8e8e8', ...extra })
 const td = (extra={}) => ({ border:B, padding:'3px 6px', fontSize:'10px', verticalAlign:'middle', textAlign:'center', ...extra })
 
-/* ── ApprovalPanel ─────────────────────────────────────────────────────────── */
+/* ── Excel-like cell input ─────────────────────────────────────────────────── */
+const XCell = ({ value, onChange, type='text', style={}, placeholder='' }) => (
+  <input
+    type={type}
+    value={value ?? ''}
+    onChange={e => onChange(e.target.value)}
+    placeholder={placeholder}
+    className="xl-input"
+    style={{ textAlign: type === 'number' ? 'right' : 'left', ...style }}
+  />
+)
+
+/* ── Approval panel ─────────────────────────────────────────────────────────── */
 const ActionPanel = ({ title, color, icon: Icon, quotations, selectedSupplierId, canChangeSupplier, onSubmit, acting }) => {
   const [notes, setNotes]         = useState('')
   const [chosenSup, setChosenSup] = useState('')
@@ -80,7 +90,6 @@ const ActionPanel = ({ title, color, icon: Icon, quotations, selectedSupplierId,
   )
 }
 
-/* ── Approval trail entry ───────────────────────────────────────────────────── */
 const TrailEntry = ({ step, name, date, notes, done, color }) => (
   <div className={`rounded-lg border p-3 ${done ? color : 'border-gray-200 bg-gray-50 opacity-50'}`}>
     <div className="flex items-center justify-between gap-2">
@@ -103,13 +112,13 @@ const ComparativeDetailPage = () => {
   const [cs, setCS]           = useState(null)
   const [loading, setLoading] = useState(true)
   const [acting, setActing]   = useState(false)
+  const [saving, setSaving]   = useState(false)
 
-  // Inline edit state
-  const [editMode, setEditMode]   = useState(false)
-  const [editItems, setEditItems] = useState([])
+  // Spreadsheet state
+  const [editItems, setEditItems]   = useState([])
   const [editQuotes, setEditQuotes] = useState([])
-  const [materials, setMaterials] = useState([])
-  const [saving, setSaving]       = useState(false)
+  const [materials, setMaterials]   = useState([])
+  const [isDirty, setIsDirty]       = useState(false)
 
   const isPurchaseHOD = ['PURCHASE_HOD','GM_PURCHASE','ADMIN'].includes(user?.role)
   const isUserHOD     = ['USER_HOD','ADMIN'].includes(user?.role)
@@ -121,7 +130,36 @@ const ComparativeDetailPage = () => {
     catch { toast.error('Not found'); navigate('/comparative') }
     finally { setLoading(false) }
   }
+
   useEffect(() => { load() }, [id])
+
+  // When cs loads and is editable, init spreadsheet state + fetch materials
+  useEffect(() => {
+    if (!cs || cs.status !== 'DRAFT' || !isPurchaseHOD) return
+    setEditItems((cs.items || []).map(it => ({
+      id: it.id, materialId: it.materialId,
+      materialName: it.material?.materialName || '',
+      specification: it.specification || '',
+      unit: it.unit || '',
+      qty: it.qty ?? 0,
+      s1: it.supplier1Rate ?? '',
+      s2: it.supplier2Rate ?? '',
+      s3: it.supplier3Rate ?? '',
+      s4: it.supplier4Rate ?? '',
+    })))
+    setEditQuotes((cs.quotations || []).map(q => ({
+      id: q.id, supplierId: q.supplierId,
+      supplierName: q.supplier?.supplierName || '',
+      quotationRef: q.quotationRef || '',
+      quotationDate: q.quotationDate ? q.quotationDate.slice(0,10) : '',
+      gstPercent: q.gstPercent ?? 18,
+      warranty: q.warranty || '',
+      deliveryDays: q.deliveryDays ?? '',
+      remarks: q.remarks || '',
+    })))
+    setIsDirty(false)
+    materialsService.getAll({ limit: 500 }).then(r => setMaterials(r.data.data || [])).catch(()=>{})
+  }, [cs])
 
   const doAction = async (fn, msg) => {
     setActing(true)
@@ -130,76 +168,47 @@ const ComparativeDetailPage = () => {
     finally { setActing(false) }
   }
 
-  const startEdit = async () => {
-    if (!materials.length) {
-      try {
-        const { data } = await materialsService.getAll({ limit: 500 })
-        setMaterials(data.data || [])
-      } catch {}
-    }
-    setEditItems((cs.items || []).map(it => ({
-      id: it.id, materialId: it.materialId,
-      materialName: it.material?.materialName || '',
-      specification: it.specification || '', unit: it.unit || '', qty: it.qty || 0,
-      supplier1Rate: it.supplier1Rate ?? '', supplier2Rate: it.supplier2Rate ?? '',
-      supplier3Rate: it.supplier3Rate ?? '', supplier4Rate: it.supplier4Rate ?? '',
-    })))
-    setEditQuotes((cs.quotations || []).map(q => ({
-      id: q.id, supplierId: q.supplierId,
-      quotationRef: q.quotationRef || '', quotationDate: q.quotationDate ? q.quotationDate.slice(0,10) : '',
-      gstPercent: q.gstPercent ?? 18, warranty: q.warranty || '',
-      deliveryDays: q.deliveryDays || '', remarks: q.remarks || '',
-    })))
-    setEditMode(true)
-  }
-
-  const cancelEdit = () => { setEditMode(false) }
-
-  const updateItem = useCallback((idx, field, val) => {
+  const updI = (idx, field, val) => {
     setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it))
-  }, [])
-
-  const updateQuote = useCallback((idx, field, val) => {
+    setIsDirty(true)
+  }
+  const updQ = (idx, field, val) => {
     setEditQuotes(prev => prev.map((q, i) => i === idx ? { ...q, [field]: val } : q))
-  }, [])
-
-  const deleteItem = (idx) => setEditItems(prev => prev.filter((_, i) => i !== idx))
-
-  const addItem = () => {
-    setEditItems(prev => [...prev, {
-      id: null, materialId: '', materialName: '',
-      specification: '', unit: 'Nos', qty: 1,
-      supplier1Rate: '', supplier2Rate: '', supplier3Rate: '', supplier4Rate: '',
-    }])
+    setIsDirty(true)
+  }
+  const delRow = (idx) => { setEditItems(prev => prev.filter((_, i) => i !== idx)); setIsDirty(true) }
+  const addRow = () => {
+    setEditItems(prev => [...prev, { id: null, materialId: '', materialName: '', specification: '', unit: 'Nos', qty: 1, s1:'', s2:'', s3:'', s4:'' }])
+    setIsDirty(true)
   }
 
-  const saveInlineEdit = async () => {
-    if (editItems.some(it => !it.materialId && !it.materialName)) {
-      toast.error('All rows need a material selected'); return
-    }
+  const saveChanges = async () => {
     setSaving(true)
     try {
       await comparativeService.update(id, {
         quotations: editQuotes.map(q => ({
-          supplierId: q.supplierId, quotationRef: q.quotationRef,
+          supplierId: q.supplierId,
+          quotationRef: q.quotationRef,
           quotationDate: q.quotationDate || null,
           gstPercent: parseFloat(q.gstPercent) || 18,
-          warranty: q.warranty, deliveryDays: q.deliveryDays ? parseInt(q.deliveryDays) : null,
+          warranty: q.warranty,
+          deliveryDays: q.deliveryDays ? parseInt(q.deliveryDays) : null,
           remarks: q.remarks,
         })),
         items: editItems.map(it => ({
           materialId: it.materialId || null,
           materialName: it.materialName,
-          specification: it.specification, unit: it.unit,
+          specification: it.specification,
+          unit: it.unit,
           qty: parseFloat(it.qty) || 0,
-          supplier1Rate: it.supplier1Rate !== '' ? parseFloat(it.supplier1Rate) : null,
-          supplier2Rate: it.supplier2Rate !== '' ? parseFloat(it.supplier2Rate) : null,
-          supplier3Rate: it.supplier3Rate !== '' ? parseFloat(it.supplier3Rate) : null,
-          supplier4Rate: it.supplier4Rate !== '' ? parseFloat(it.supplier4Rate) : null,
+          supplier1Rate: it.s1 !== '' ? parseFloat(it.s1) : null,
+          supplier2Rate: it.s2 !== '' ? parseFloat(it.s2) : null,
+          supplier3Rate: it.s3 !== '' ? parseFloat(it.s3) : null,
+          supplier4Rate: it.s4 !== '' ? parseFloat(it.s4) : null,
         })),
       })
-      toast.success('CS updated successfully')
-      setEditMode(false)
+      toast.success('CS saved!')
+      setIsDirty(false)
       load()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save')
@@ -213,34 +222,38 @@ const ComparativeDetailPage = () => {
   )
   if (!cs) return null
 
+  const isSheet = isPurchaseHOD && cs.status === 'DRAFT'
   const quotations = cs.quotations || []
   const items      = cs.items      || []
 
-  const byAmt      = [...quotations].filter(q=>q.totalAmount!=null).sort((a,b)=>a.totalAmount-b.totalAmount)
-  const getPos     = (q) => { const i=byAmt.findIndex(s=>s.id===q.id); return i>=0?`L${i+1}`:'—' }
-
   const RATE_KEYS = ['supplier1Rate','supplier2Rate','supplier3Rate','supplier4Rate']
+  const E_RATE_KEYS = ['s1','s2','s3','s4']
   const getRate    = (item, qi) => item[RATE_KEYS[qi]] ?? null
   const getItemAmt = (item, qi) => { const r=getRate(item,qi); return r!=null ? item.qty*r : null }
-  const getColSub  = (qi)       => items.reduce((s,item)=>s+(getItemAmt(item,qi)??0),0)
-  const getEditColSub = (qi) => editItems.reduce((s,it) => {
-    const r = it[RATE_KEYS[qi]] !== '' ? parseFloat(it[RATE_KEYS[qi]]) : null
+  const getColSub  = (qi) => items.reduce((s,it) => s + (getItemAmt(it,qi) ?? 0), 0)
+  const getEditSub = (qi) => editItems.reduce((s,it) => {
+    const r = it[E_RATE_KEYS[qi]] !== '' ? parseFloat(it[E_RATE_KEYS[qi]]) : null
     return s + (r != null ? parseFloat(it.qty||0) * r : 0)
   }, 0)
 
-  /* supplier detail row values */
+  const displayItems  = isSheet ? editItems  : items
+  const displayQuotes = isSheet ? editQuotes : quotations
+
+  const byAmt  = [...quotations].filter(q=>q.totalAmount!=null).sort((a,b)=>a.totalAmount-b.totalAmount)
+  const getPos = (q) => { const i=byAmt.findIndex(s=>s.id===q.id); return i>=0?`L${i+1}`:'—' }
+
   const detailRows = [
-    { num:8,  label:'Quotation Received',     fn: (q) => q.quotationRef || (q.quotationDate ? `Dated ${fmtD(q.quotationDate)}` : 'Email') },
-    { num:9,  label:'Company / Dealer',       fn: (q) => `M/s ${q.supplier?.supplierName||'—'}` },
-    { num:10, label:'Rates Validity',         fn: (q) => q.quotationDate ? `Quot. Dt. ${fmtD(q.quotationDate)}` : '—' },
-    { num:11, label:'GST',                    fn: (q) => q.gstPercent ? `${q.gstPercent}% Extra` : '18% Extra' },
-    { num:12, label:'Make',                   fn: (_) => items.length ? (items[0].specification || '—') : '—' },
-    { num:13, label:'Warranty',               fn: (q) => q.warranty || '—' },
-    { num:14, label:'Payment Terms',          fn: (q) => q.remarks || '100% on Delivery' },
-    { num:15, label:'Freight Charges',        fn: (_) => 'FOR' },
-    { num:16, label:'Delivery Time',          fn: (q) => q.deliveryDays ? `${q.deliveryDays} Days` : '—' },
-    { num:17, label:'Vendor Contact Details', fn: (q) => [q.supplier?.mobile, q.supplier?.email].filter(Boolean).join(' / ') || '—' },
-    { num:18, label:'Position of Vendors',    fn: (q) => getPos(q) },
+    { num:8,  label:'Quotation Received',     field: 'quotationRef',  fn: (q) => q.quotationRef || (q.quotationDate ? `Dated ${fmtD(q.quotationDate)}` : 'Email') },
+    { num:9,  label:'Company / Dealer',       field: null,            fn: (q) => `M/s ${q.supplier?.supplierName||q.supplierName||'—'}` },
+    { num:10, label:'Rates Validity',         field: null,            fn: (q) => q.quotationDate ? `Quot. Dt. ${fmtD(q.quotationDate)}` : '—' },
+    { num:11, label:'GST',                    field: 'gstPercent',    fn: (q) => q.gstPercent ? `${q.gstPercent}% Extra` : '18% Extra' },
+    { num:12, label:'Make',                   field: null,            fn: (_) => items.length ? (items[0].specification || '—') : '—' },
+    { num:13, label:'Warranty',               field: 'warranty',      fn: (q) => q.warranty || '—' },
+    { num:14, label:'Payment Terms',          field: 'remarks',       fn: (q) => q.remarks || '100% on Delivery' },
+    { num:15, label:'Freight Charges',        field: null,            fn: (_) => 'FOR' },
+    { num:16, label:'Delivery Time',          field: 'deliveryDays',  fn: (q) => q.deliveryDays ? `${q.deliveryDays} Days` : '—' },
+    { num:17, label:'Vendor Contact Details', field: null,            fn: (q) => [q.supplier?.mobile, q.supplier?.email].filter(Boolean).join(' / ') || '—' },
+    { num:18, label:'Position of Vendors',    field: null,            fn: (q) => getPos(q) },
   ]
 
   const titleItems = items.slice(0,2).map(i=>i.material?.materialName).filter(Boolean).join(', ')
@@ -254,8 +267,46 @@ const ComparativeDetailPage = () => {
           body > * { display: none !important; }
           #cs-print-area { display: block !important; position: static !important; }
           .no-print { display: none !important; }
+          .xl-input { display: none !important; }
+          .xl-print { display: inline !important; }
         }
         #cs-print-area { display: block; }
+        .xl-print { display: none; }
+
+        /* Excel-like cell inputs */
+        .xl-input {
+          border: none;
+          background: transparent;
+          outline: none;
+          width: 100%;
+          font-size: 10px;
+          font-family: Arial, sans-serif;
+          padding: 1px 3px;
+          box-sizing: border-box;
+          min-width: 0;
+        }
+        .xl-input:focus {
+          background: #e8f0fe;
+          outline: 2px solid #1a73e8;
+          outline-offset: -1px;
+          border-radius: 1px;
+          position: relative;
+          z-index: 1;
+        }
+        .xl-input:hover:not(:focus) {
+          background: #f1f5f9;
+        }
+        .xl-row:hover td { background: rgba(66,133,244,0.04); }
+        .xl-row td { cursor: cell; }
+        .xl-del {
+          color: #dc2626; cursor: pointer; border: none; background: none;
+          padding: 0 2px; font-size: 13px; line-height: 1; opacity: 0.6;
+        }
+        .xl-del:hover { opacity: 1; }
+        .xl-add-row td {
+          padding: 3px 6px !important; border-top: 1px dashed #93c5fd !important;
+          background: #f0f9ff;
+        }
       `}</style>
 
       {/* ── Screen header ── */}
@@ -271,21 +322,17 @@ const ComparativeDetailPage = () => {
             <span className={STATUS_BADGE[cs.status]||'badge badge-gray'}>{STATUS_LABEL[cs.status]||cs.status}</span>
           </p>
         </div>
-        <div className="flex gap-2">
-          {isPurchaseHOD && cs.status === 'DRAFT' && !editMode && (
-            <button onClick={startEdit} className="btn-secondary flex items-center gap-2 no-print border-amber-300 text-amber-700 hover:bg-amber-50">
-              <Edit3 size={14}/> Inline Edit
+        <div className="flex gap-2 items-center">
+          {isSheet && isDirty && (
+            <button onClick={saveChanges} disabled={saving}
+              className="btn-primary flex items-center gap-2">
+              <Save size={14}/> {saving ? 'Saving…' : 'Save Changes'}
             </button>
           )}
-          {editMode && (
-            <>
-              <button onClick={cancelEdit} className="btn-secondary flex items-center gap-2 no-print">
-                <X size={14}/> Cancel
-              </button>
-              <button onClick={saveInlineEdit} disabled={saving} className="btn-primary flex items-center gap-2 no-print">
-                <Save size={14}/> {saving ? 'Saving…' : 'Save Changes'}
-              </button>
-            </>
+          {isSheet && (
+            <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+              ✏️ Click any cell to edit
+            </span>
           )}
           <button onClick={()=>window.print()} className="btn-secondary flex items-center gap-2 no-print">
             <Printer size={14}/> Print CS
@@ -322,7 +369,7 @@ const ComparativeDetailPage = () => {
           <div className="card-header">
             <h3 className="font-semibold text-gray-800">Supplier Summary</h3>
           </div>
-          <div className={`grid divide-x divide-gray-100`} style={{gridTemplateColumns:`repeat(${numQ},1fr)`}}>
+          <div className="grid divide-x divide-gray-100" style={{gridTemplateColumns:`repeat(${numQ},1fr)`}}>
             {quotations.map((q,i)=>{
               const pos = getPos(q)
               return (
@@ -361,21 +408,11 @@ const ComparativeDetailPage = () => {
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════
-          PRINTABLE COMPARATIVE DOCUMENT — visible on screen + on print
-          ════════════════════════════════════════════════════════════════ */}
+      {/* ════ COMPARATIVE DOCUMENT ════ */}
       <div id="cs-print-area" className="mt-2 bg-white shadow-lg rounded-lg overflow-hidden">
-        {cs.status === 'DRAFT' && (
-          <div className="no-print flex justify-end p-2 bg-amber-50 border-b border-amber-200">
-            <Link to={`/comparative/${cs.id}/edit`}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors">
-              <Pencil size={13}/> Edit CS
-            </Link>
-          </div>
-        )}
         <div style={{fontFamily:'Arial, sans-serif', fontSize:'10px', maxWidth:'100%'}}>
 
-          {/* ── Title row ── */}
+          {/* Title */}
           <table style={{width:'100%', borderCollapse:'collapse', border:BH}}>
             <tbody>
               <tr style={{backgroundColor:'#2d2d2d', color:'#fff'}}>
@@ -389,7 +426,7 @@ const ComparativeDetailPage = () => {
             </tbody>
           </table>
 
-          {/* ── Info bar ── */}
+          {/* Info bar */}
           <table style={{width:'100%', borderCollapse:'collapse', borderLeft:BH, borderRight:BH, borderBottom:BH}}>
             <tbody>
               <tr>
@@ -409,11 +446,11 @@ const ComparativeDetailPage = () => {
             </tbody>
           </table>
 
-          {/* ── Main comparison table ── */}
+          {/* Main comparison table */}
           <table style={{width:'100%', borderCollapse:'collapse', borderLeft:BH, borderRight:BH, borderBottom:BH}}>
             <thead>
-              {/* Supplier name headers */}
               <tr>
+                {isSheet && <th style={th({width:'24px'})}></th>}
                 <th rowSpan={2} style={th({width:'3%'})}>Sr.<br/>No.</th>
                 <th rowSpan={2} style={th({width:'16%', textAlign:'left'})}>Item Description</th>
                 <th rowSpan={2} style={th({width:'18%', textAlign:'left'})}>Specifications</th>
@@ -426,6 +463,7 @@ const ComparativeDetailPage = () => {
                 ))}
               </tr>
               <tr>
+                {isSheet && <th style={th({width:'24px'})}></th>}
                 {quotations.map((q, i) => (
                   <Fragment key={q.id}>
                     <th style={th({backgroundColor:SUP_BG[i]})}>Rate (₹)</th>
@@ -435,88 +473,82 @@ const ComparativeDetailPage = () => {
               </tr>
             </thead>
             <tbody>
-              {/* Item rows */}
-              {(editMode ? editItems : items).map((item, i) => (
-                <tr key={item.id || i} style={editMode ? {backgroundColor:'#fffbf0'} : {}}>
-                  <td style={td()}>
-                    {editMode
-                      ? <div className="flex items-center gap-1">
-                          <span style={{fontSize:'9px'}}>{i+1}</span>
-                          <button type="button" onClick={()=>deleteItem(i)} title="Delete row"
-                            style={{color:'#ef4444',cursor:'pointer',lineHeight:1,border:'none',background:'none',padding:'1px'}}>
-                            <span style={{fontSize:'12px'}}>×</span>
-                          </button>
-                        </div>
-                      : i+1}
-                  </td>
-                  <td style={td({textAlign:'left', fontWeight:'600'})}>
-                    {editMode
-                      ? <select value={item.materialId}
-                          onChange={e => {
-                            const mat = materials.find(m => m.id === e.target.value)
-                            updateItem(i, 'materialId', e.target.value)
-                            if (mat) updateItem(i, 'materialName', mat.materialName)
-                          }}
-                          style={{width:'100%',fontSize:'9px',border:'1px solid #d1d5db',borderRadius:'3px',padding:'1px 3px'}}>
-                          <option value="">— select —</option>
-                          {materials.map(m => <option key={m.id} value={m.id}>{m.materialName}</option>)}
-                        </select>
-                      : item.material?.materialName}
-                  </td>
-                  <td style={td({textAlign:'left', fontSize:'9.5px'})}>
-                    {editMode
-                      ? <input value={item.specification} onChange={e=>updateItem(i,'specification',e.target.value)}
-                          style={{width:'100%',fontSize:'9px',border:'1px solid #d1d5db',borderRadius:'3px',padding:'1px 3px'}}/>
-                      : item.specification||''}
-                  </td>
-                  <td style={td()}>
-                    {editMode
-                      ? <input value={item.unit} onChange={e=>updateItem(i,'unit',e.target.value)}
-                          style={{width:'38px',fontSize:'9px',border:'1px solid #d1d5db',borderRadius:'3px',padding:'1px 2px',textAlign:'center'}}/>
-                      : item.unit}
-                  </td>
-                  <td style={td()}>
-                    {editMode
-                      ? <input type="number" value={item.qty} onChange={e=>updateItem(i,'qty',e.target.value)}
-                          style={{width:'44px',fontSize:'9px',border:'1px solid #d1d5db',borderRadius:'3px',padding:'1px 2px',textAlign:'center'}}/>
-                      : item.qty}
-                  </td>
-                  {(editMode ? editQuotes : quotations).map((q, qi) => {
-                    const rKey = `supplier${qi+1}Rate`
-                    const r = editMode ? (item[rKey] !== '' ? parseFloat(item[rKey]) : null) : getRate(item, qi)
-                    const a = r != null ? (editMode ? parseFloat(item.qty||0) * r : getItemAmt(item, qi)) : null
-                    return (
-                      <Fragment key={q.id || qi}>
-                        <td style={td({textAlign:'right', padding: editMode ? '1px 3px' : undefined})}>
-                          {editMode
-                            ? <input type="number" value={item[rKey]} onChange={e=>updateItem(i, rKey, e.target.value)}
-                                style={{width:'58px',fontSize:'9px',border:'1px solid #d1d5db',borderRadius:'3px',padding:'1px 3px',textAlign:'right'}}/>
-                            : r!=null ? fmtAmt(r) : ''}
-                        </td>
-                        <td style={td({textAlign:'right'})}>{a!=null ? fmtAmt(a) : ''}</td>
-                      </Fragment>
-                    )
-                  })}
-                </tr>
-              ))}
-              {/* Add row button in edit mode */}
-              {editMode && (
-                <tr>
-                  <td colSpan={5 + quotations.length * 2} style={{padding:'4px 8px', textAlign:'left'}}>
-                    <button type="button" onClick={addItem}
-                      style={{fontSize:'10px',color:'#2563eb',border:'1px dashed #93c5fd',borderRadius:'4px',padding:'2px 10px',cursor:'pointer',background:'#eff6ff',display:'flex',alignItems:'center',gap:'4px'}}>
-                      <span style={{fontSize:'14px',lineHeight:1}}>+</span> Add Row
+              {displayItems.map((item, i) => {
+                const rates = isSheet
+                  ? [item.s1, item.s2, item.s3, item.s4].slice(0, quotations.length)
+                  : quotations.map((_, qi) => getRate(item, qi))
+                const qty = parseFloat(isSheet ? item.qty : item.qty) || 0
+                return (
+                  <tr key={item.id || i} className={isSheet ? 'xl-row' : ''}>
+                    {isSheet && (
+                      <td style={td({width:'24px', padding:'1px 2px', border:B})}>
+                        <button className="xl-del" onClick={()=>delRow(i)} title="Delete row">×</button>
+                      </td>
+                    )}
+                    <td style={td()}>{i+1}</td>
+                    <td style={td({textAlign:'left', fontWeight:'600', padding: isSheet ? '1px' : undefined})}>
+                      {isSheet
+                        ? <select value={item.materialId} className="xl-input" style={{cursor:'pointer'}}
+                            onChange={e => {
+                              const mat = materials.find(m => m.id === e.target.value)
+                              updI(i, 'materialId', e.target.value)
+                              if (mat) updI(i, 'materialName', mat.materialName)
+                            }}>
+                            <option value="">— select —</option>
+                            {materials.map(m => <option key={m.id} value={m.id}>{m.materialName}</option>)}
+                          </select>
+                        : item.material?.materialName}
+                    </td>
+                    <td style={td({textAlign:'left', fontSize:'9.5px', padding: isSheet ? '1px' : undefined})}>
+                      {isSheet
+                        ? <XCell value={item.specification} onChange={v=>updI(i,'specification',v)} placeholder="specification"/>
+                        : item.specification||''}
+                    </td>
+                    <td style={td({padding: isSheet ? '1px' : undefined})}>
+                      {isSheet
+                        ? <XCell value={item.unit} onChange={v=>updI(i,'unit',v)} style={{textAlign:'center', width:'40px'}}/>
+                        : item.unit}
+                    </td>
+                    <td style={td({padding: isSheet ? '1px' : undefined})}>
+                      {isSheet
+                        ? <XCell type="number" value={item.qty} onChange={v=>updI(i,'qty',v)} style={{width:'46px'}}/>
+                        : item.qty}
+                    </td>
+                    {quotations.map((q, qi) => {
+                      const rKey = E_RATE_KEYS[qi]
+                      const r = isSheet ? (item[rKey] !== '' ? parseFloat(item[rKey]) : null) : getRate(item, qi)
+                      const a = r != null ? qty * r : null
+                      return (
+                        <Fragment key={q.id}>
+                          <td style={td({textAlign:'right', padding: isSheet ? '1px' : undefined})}>
+                            {isSheet
+                              ? <XCell type="number" value={item[rKey]} onChange={v=>updI(i, rKey, v)} style={{width:'70px'}}/>
+                              : r!=null ? fmtAmt(r) : ''}
+                          </td>
+                          <td style={td({textAlign:'right'})}>{a!=null ? fmtAmt(a) : ''}</td>
+                        </Fragment>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+
+              {/* Add row */}
+              {isSheet && (
+                <tr className="xl-add-row no-print">
+                  <td colSpan={6 + quotations.length * 2}>
+                    <button onClick={addRow} style={{fontSize:'10px',color:'#2563eb',cursor:'pointer',background:'none',border:'none',padding:'2px 4px',display:'flex',alignItems:'center',gap:'3px'}}>
+                      <span style={{fontSize:'16px',lineHeight:1}}>+</span> Add Row
                     </button>
                   </td>
                 </tr>
               )}
 
-              {/* Blank padding rows */}
-              {Array.from({length: Math.max(0, 3-items.length)}).map((_,i) => (
+              {/* Blank padding rows (non-edit) */}
+              {!isSheet && Array.from({length: Math.max(0, 3-items.length)}).map((_,i) => (
                 <tr key={`b${i}`} style={{height:'20px'}}>
                   <td style={td()}>{items.length+i+1}</td>
-                  <td style={td({textAlign:'left'})}></td>
-                  <td style={td({textAlign:'left'})}></td>
+                  <td style={td({textAlign:'left'})}></td><td style={td({textAlign:'left'})}></td>
                   <td style={td()}></td><td style={td()}></td>
                   {quotations.map(q=>(
                     <Fragment key={q.id}><td style={td()}></td><td style={td()}></td></Fragment>
@@ -524,13 +556,14 @@ const ComparativeDetailPage = () => {
                 </tr>
               ))}
 
-              {/* ── Total / GST / Grand Total rows ── */}
+              {/* Totals */}
               <tr style={{backgroundColor:'#f0f0f0'}}>
+                {isSheet && <td style={td()}></td>}
                 <td style={td({textAlign:'right', fontWeight:'700', fontSize:'10px'})} colSpan={5}>Total</td>
-                {(editMode ? editQuotes : quotations).map((q, qi) => {
-                  const sub = editMode ? getEditColSub(qi) : getColSub(qi)
+                {quotations.map((q, qi) => {
+                  const sub = isSheet ? getEditSub(qi) : getColSub(qi)
                   return (
-                    <Fragment key={q.id || qi}>
+                    <Fragment key={q.id}>
                       <td style={td()}></td>
                       <td style={td({textAlign:'right', fontWeight:'700'})}>
                         {sub > 0 ? fmtAmt(sub) : (q.totalAmount ? fmtAmt(q.totalAmount) : '')}
@@ -540,17 +573,19 @@ const ComparativeDetailPage = () => {
                 })}
               </tr>
               <tr>
+                {isSheet && <td style={td()}></td>}
                 <td style={td({textAlign:'right'})} colSpan={5}>Cartage</td>
-                {(editMode ? editQuotes : quotations).map((q, qi) => (
-                  <Fragment key={q.id || qi}><td style={td()}></td><td style={td()}>FOR</td></Fragment>
+                {quotations.map(q => (
+                  <Fragment key={q.id}><td style={td()}></td><td style={td()}>FOR</td></Fragment>
                 ))}
               </tr>
               <tr>
+                {isSheet && <td style={td()}></td>}
                 <td style={td({textAlign:'right'})} colSpan={5}>
-                  GST {(editMode ? editQuotes[0]?.gstPercent : quotations[0]?.gstPercent) || '18'}%
+                  GST {(isSheet ? editQuotes[0]?.gstPercent : quotations[0]?.gstPercent) || '18'}%
                 </td>
-                {(editMode ? editQuotes : quotations).map((q, qi) => {
-                  const sub = editMode ? getEditColSub(qi) : getColSub(qi)
+                {displayQuotes.map((q, qi) => {
+                  const sub = isSheet ? getEditSub(qi) : getColSub(qi)
                   const pct = parseFloat(q.gstPercent) || 18
                   const gst = sub > 0 ? sub * pct / 100 : null
                   return (
@@ -562,9 +597,10 @@ const ComparativeDetailPage = () => {
                 })}
               </tr>
               <tr style={{backgroundColor:'#f0fdf4'}}>
+                {isSheet && <td style={td()}></td>}
                 <td style={td({textAlign:'right', fontWeight:'700'})} colSpan={5}>Total Amount</td>
-                {(editMode ? editQuotes : quotations).map((q, qi) => {
-                  const sub = editMode ? getEditColSub(qi) : getColSub(qi)
+                {displayQuotes.map((q, qi) => {
+                  const sub = isSheet ? getEditSub(qi) : getColSub(qi)
                   const pct = parseFloat(q.gstPercent) || 18
                   const grand = sub > 0 ? sub + sub*pct/100 : (q.totalAmount || null)
                   return (
@@ -576,49 +612,44 @@ const ComparativeDetailPage = () => {
                 })}
               </tr>
 
-              {/* ── Supplier detail rows 8–18 ── */}
-              {detailRows.map(({ num, label, fn }, ri) => {
-                const editFieldMap = { 11:'gstPercent', 13:'warranty', 14:'remarks', 16:'deliveryDays' }
-                const editField = editFieldMap[num]
-                return (
-                  <tr key={num} style={{backgroundColor: editMode ? '#fffbf0' : ri%2===0 ? '#fafafa' : '#fff'}}>
-                    <td style={td({textAlign:'left', fontWeight:'600'})} colSpan={5}>
-                      {num}.&nbsp;&nbsp;{label}
+              {/* Detail rows 8–18 */}
+              {detailRows.map(({ num, label, field, fn }, ri) => (
+                <tr key={num} style={{backgroundColor: ri%2===0 ? '#fafafa' : '#fff'}}>
+                  {isSheet && <td style={td()}></td>}
+                  <td style={td({textAlign:'left', fontWeight:'600'})} colSpan={5}>
+                    {num}.&nbsp;&nbsp;{label}
+                  </td>
+                  {displayQuotes.map((q, qi) => (
+                    <td key={q.id || qi} colSpan={2} style={td({
+                      textAlign: num===18 ? 'center' : 'left',
+                      fontWeight: num===18 ? '700' : '400',
+                      fontSize: '9.5px',
+                      padding: isSheet && field ? '1px 2px' : undefined,
+                    })}>
+                      {isSheet && field
+                        ? <XCell
+                            type={num===11||num===16 ? 'number' : 'text'}
+                            value={q[field]}
+                            onChange={v => updQ(qi, field, v)}
+                            placeholder={label}
+                            style={{textAlign: num===11||num===16 ? 'right' : 'left'}}
+                          />
+                        : fn(q)}
                     </td>
-                    {(editMode ? editQuotes : quotations).map((q, qi) => (
-                      <td key={q.id || qi} colSpan={2} style={td({
-                        textAlign: num===18 ? 'center' : 'left',
-                        fontWeight: num===18 ? '700' : '400',
-                        fontSize: '9.5px',
-                        padding: editMode && editField ? '2px 4px' : undefined,
-                      })}>
-                        {editMode && editField
-                          ? <input type={num===11||num===16 ? 'number' : 'text'}
-                              value={q[editField]}
-                              onChange={e => updateQuote(qi, editField, e.target.value)}
-                              style={{width:'100%',fontSize:'9px',border:'1px solid #d1d5db',borderRadius:'3px',padding:'1px 4px'}}
-                              placeholder={label}/>
-                          : editMode ? fn(q) : fn(q)}
-                      </td>
-                    ))}
-                  </tr>
-                )
-              })}
+                  ))}
+                </tr>
+              ))}
             </tbody>
           </table>
 
-          {/* ── Notes ── */}
+          {/* Notes */}
           <table style={{width:'100%', borderCollapse:'collapse', borderLeft:BH, borderRight:BH, borderBottom:BH}}>
             <tbody>
               <tr style={{backgroundColor:'#e8e8e8'}}>
                 <td style={{padding:'3px 8px', fontWeight:'700', fontSize:'10px'}}>NOTE</td>
                 <td></td>
               </tr>
-              {[
-                'QUOTES ATTACHED',
-                cs.notes || '',
-                '',
-              ].map((note, i) => (
+              {['QUOTES ATTACHED', cs.notes || '', ''].map((note, i) => (
                 <tr key={i}>
                   <td style={{padding:'2px 8px', fontSize:'10px', width:'24px', verticalAlign:'top', fontWeight:'500'}}>{i+1}.</td>
                   <td style={{padding:'2px 8px', fontSize:'10px', borderLeft:'1px solid #ddd'}}>{note}</td>
@@ -627,7 +658,7 @@ const ComparativeDetailPage = () => {
             </tbody>
           </table>
 
-          {/* ── Footer ── */}
+          {/* Footer */}
           <div style={{padding:'4px 10px', textAlign:'right', fontSize:'9px', color:'#666', borderLeft:BH, borderRight:BH, borderBottom:BH}}>
             Generated on: {new Date().toLocaleString('en-IN')} &nbsp;|&nbsp; CS No.: {cs.csNumber}
           </div>
