@@ -21,6 +21,7 @@ router.get('/', purchasesController.getAll);
 router.get('/:id', purchasesController.getById);
 router.get('/:id/pdf', purchasesController.generatePDF);
 router.post('/', requireRole('ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'STORE_MANAGER', 'ACCOUNTANT'), itemValidation, purchasesController.create);
+router.put('/:id', requireRole('ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'STORE_MANAGER', 'ACCOUNTANT'), purchasesController.update);
 router.patch('/:id/status', purchasesController.updateStatus);
 router.patch('/:id/submit', requireRole('ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'STORE_MANAGER', 'ACCOUNTANT'), purchasesController.submitForApproval);
 router.patch('/:id/approve', requireRole('ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'MD', 'EXE_DIRECTOR'), purchasesController.approvePurchase);

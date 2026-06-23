@@ -44,6 +44,7 @@ export const indentsService = {
   getAll: (params) => api.get('/indents', { params }),
   getById: (id) => api.get(`/indents/${id}`),
   create: (data) => api.post('/indents', data),
+  update: (id, data) => api.put(`/indents/${id}`, data),
   submitToHOD: (id) => api.patch(`/indents/${id}/submit`),
   hodAction: (id, action, notes) => api.patch(`/indents/${id}/hod-action`, { action, notes }),
   purchaseAction: (id, action, notes) => api.patch(`/indents/${id}/purchase-action`, { action, notes }),
@@ -53,6 +54,7 @@ export const comparativeService = {
   getAll: (params) => api.get('/comparative', { params }),
   getById: (id) => api.get(`/comparative/${id}`),
   create: (data) => api.post('/comparative', data),
+  update: (id, data) => api.put(`/comparative/${id}`, data),
   addQuotation: (id, data) => api.post(`/comparative/${id}/quotations`, data),
   uploadQuotationFile: (id, quotationId, formData) =>
     api.post(`/comparative/${id}/quotations/${quotationId}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
@@ -66,6 +68,7 @@ export const nfaService = {
   getAll: (params) => api.get('/nfa', { params }),
   getById: (id) => api.get(`/nfa/${id}`),
   create: (data) => api.post('/nfa', data),
+  update: (id, data) => api.put(`/nfa/${id}`, data),
   uploadDraftPO: (id, formData) =>
     api.post(`/nfa/${id}/upload-draft-po`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   sign: (id, action, signature) => api.patch(`/nfa/${id}/sign`, { action, signature }),

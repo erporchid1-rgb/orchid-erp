@@ -15,6 +15,7 @@ import SuppliersPage from './pages/suppliers/SuppliersPage'
 import PurchasesPage from './pages/purchases/PurchasesPage'
 import PurchaseDetailPage from './pages/purchases/PurchaseDetailPage'
 import CreatePurchasePage from './pages/purchases/CreatePurchasePage'
+import EditPurchasePage from './pages/purchases/EditPurchasePage'
 import StockPage from './pages/stock/StockPage'
 import StockLedgerPage from './pages/stock/StockLedgerPage'
 import OpeningStockPage from './pages/stock/OpeningStockPage'
@@ -25,12 +26,15 @@ import CreateTransferPage from './pages/transfers/CreateTransferPage'
 import IndentsPage from './pages/indents/IndentsPage'
 import CreateIndentPage from './pages/indents/CreateIndentPage'
 import IndentDetailPage from './pages/indents/IndentDetailPage'
+import EditIndentPage from './pages/indents/EditIndentPage'
 import ComparativePage from './pages/comparative/ComparativePage'
 import CreateComparativePage from './pages/comparative/CreateComparativePage'
 import ComparativeDetailPage from './pages/comparative/ComparativeDetailPage'
+import EditComparativePage from './pages/comparative/EditComparativePage'
 import NFAPage from './pages/nfa/NFAPage'
 import CreateNFAPage from './pages/nfa/CreateNFAPage'
 import NFADetailPage from './pages/nfa/NFADetailPage'
+import EditNFAPage from './pages/nfa/EditNFAPage'
 import MRNPage from './pages/mrn/MRNPage'
 import CreateMRNPage from './pages/mrn/CreateMRNPage'
 import UsersPage from './pages/users/UsersPage'
@@ -73,6 +77,7 @@ const AppRoutes = () => (
       <Route path="purchases" element={<PurchasesPage />} />
       <Route path="purchases/new" element={<CreatePurchasePage />} />
       <Route path="purchases/:id" element={<PurchaseDetailPage />} />
+      <Route path="purchases/:id/edit" element={<EditPurchasePage />} />
       <Route path="stock" element={<StockPage />} />
       <Route path="stock/ledger/:materialId" element={<StockLedgerPage />} />
       <Route path="stock/opening" element={<ProtectedRoute roles={['ADMIN']}><OpeningStockPage /></ProtectedRoute>} />
@@ -83,12 +88,15 @@ const AppRoutes = () => (
       <Route path="indents" element={<IndentsPage />} />
       <Route path="indents/new" element={<CreateIndentPage />} />
       <Route path="indents/:id" element={<IndentDetailPage />} />
+      <Route path="indents/:id/edit" element={<EditIndentPage />} />
       <Route path="comparative" element={<ComparativePage />} />
       <Route path="comparative/new" element={<CreateComparativePage />} />
       <Route path="comparative/:id" element={<ComparativeDetailPage />} />
+      <Route path="comparative/:id/edit" element={<EditComparativePage />} />
       <Route path="nfa" element={<NFAPage />} />
       <Route path="nfa/new" element={<CreateNFAPage />} />
       <Route path="nfa/:id" element={<NFADetailPage />} />
+      <Route path="nfa/:id/edit" element={<EditNFAPage />} />
       <Route path="mrn" element={<MRNPage />} />
       <Route path="mrn/new" element={<CreateMRNPage />} />
       <Route path="reports/stock" element={<StockReportPage />} />

@@ -14,6 +14,11 @@ router.get('/:id', ctrl.getById);
 router.post('/',
   requireRole('PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'),
   ctrl.create
+)
+
+router.put('/:id',
+  requireRole('PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'),
+  ctrl.update
 );
 
 // Upload Draft PO document

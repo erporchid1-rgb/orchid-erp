@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { indentsService } from '../../services'
 import { formatDate } from '../../utils/helpers'
 import { useAuth } from '../../context/AuthContext'
-import { ArrowLeft, ClipboardList, CheckCircle, XCircle, PauseCircle, Send, ShoppingCart, FileText, Printer } from 'lucide-react'
+import { ArrowLeft, ClipboardList, CheckCircle, XCircle, PauseCircle, Send, ShoppingCart, FileText, Printer, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const STATUS_BADGE = {
@@ -302,11 +302,20 @@ const IndentDetailPage = () => {
           body * { visibility: hidden !important; }
           #indent-print-area { visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; background: white; z-index: 99999; padding: 0; margin: 0; }
           #indent-print-area * { visibility: visible !important; }
+          .no-print { display: none !important; }
         }
       `}</style>
 
       {/* ── Purchase Indent Document (visible on screen + printable) ── */}
       <div id="indent-print-area" className="mt-6 bg-white shadow-lg rounded-lg overflow-hidden">
+        {indent.status === 'DRAFT' && (
+          <div className="no-print flex justify-end p-2 bg-amber-50 border-b border-amber-200">
+            <Link to={`/indents/${indent.id}/edit`}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors">
+              <Pencil size={13}/> Edit Indent
+            </Link>
+          </div>
+        )}
         <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px', border: '2px solid #000', boxSizing: 'border-box' }}>
 
           {/* Company Header */}

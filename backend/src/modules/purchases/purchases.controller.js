@@ -125,4 +125,14 @@ const remove = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, create, updateStatus, submitForApproval, approvePurchase, rejectPurchase, uploadQuotation, uploadInvoice, generatePDF, remove };
+const update = async (req, res, next) => {
+  try {
+    const purchase = await purchasesService.update(req.params.id, req.body);
+    return sendSuccess(res, purchase, 'Purchase updated successfully');
+  } catch (err) {
+    if (err.status) return sendError(res, err.message, err.status);
+    next(err);
+  }
+};
+
+module.exports = { getAll, getById, create, update, updateStatus, submitForApproval, approvePurchase, rejectPurchase, uploadQuotation, uploadInvoice, generatePDF, remove };

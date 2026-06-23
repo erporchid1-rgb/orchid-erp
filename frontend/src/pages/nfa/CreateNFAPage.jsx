@@ -2,8 +2,16 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm, useWatch } from 'react-hook-form'
 import { nfaService, comparativeService } from '../../services'
-import { FileCheck, ArrowLeft, CheckCircle, ChevronRight, RefreshCw } from 'lucide-react'
+import { FileCheck, ArrowLeft, CheckCircle, ChevronRight, RefreshCw, UserCheck, ChevronUp, ChevronDown } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+export const DEFAULT_SIGNATORIES = [
+  { key: 'gm',        label: 'GM — Purchase',       show: true },
+  { key: 'user',      label: 'User Department',      show: true },
+  { key: 'cfo',       label: 'CFO',                  show: true },
+  { key: 'president', label: 'President — Projects', show: true },
+  { key: 'dir',       label: 'Executive Director',   show: true },
+]
 
 const fmtAmt = (v) => v != null
   ? new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)
@@ -21,6 +29,7 @@ const CreateNFAPage = () => {
   const [loadingCS, setLoadingCS]       = useState(true)
   const [selectedCS, setSelectedCS]     = useState(null)
   const [saving, setSaving]             = useState(false)
+  const [signatories, setSignatories]   = useState(DEFAULT_SIGNATORIES)
 
   const { register, handleSubmit, control, setValue, reset, formState: { errors } } = useForm({
     defaultValues: {
@@ -65,35 +74,56 @@ const CreateNFAPage = () => {
     const items     = cs.items || []
     const indent    = cs.indent || {}
 
-    // Build auto-fill values
-    const natureOfWork = items.length
-      ? `Supply of ${items.map(i => i.material?.materialName).filter(Boolean).join(', ')} for ${indent.project?.projectName || ''} — ${indent.site?.siteName || ''}`
+    const matNames = items.map(i => i.material?.materialName).filter(Boolean)
+
+    const natureOfWork = matNames.length
+      ? `Supply of ${matNames.join(', ')} for ${indent.project?.projectName || ''} — ${indent.site?.siteName || ''}`
       : ''
 
+    // Item description with rate from selected supplier
     const itemDesc = items
-      .map((i, idx) => `${idx+1}. ${i.material?.materialName} — Qty: ${i.qty} ${i.unit}`)
+      .map((i, idx) => {
+        const rate = i.selectedRate || i.supplier1Rate || ''
+        const rateStr = rate ? ` @ ₹${rate}/${i.unit}` : ''
+        const spec = i.specification ? ` (${i.specification})` : ''
+        return `${idx+1}. ${i.material?.materialName}${spec} — Qty: ${i.qty} ${i.unit}${rateStr}`
+      })
       .join('\n')
+
+    // Product description from specifications
+    const specs = items.map(i => i.specification).filter(Boolean)
+    const productDesc = specs.length
+      ? specs.join(', ')
+      : matNames.join(', ')
+
+    // Payment terms from warranty + delivery
+    const warrantyStr   = selectedQ?.warranty    ? `Warranty: ${selectedQ.warranty}` : ''
+    const deliveryStr   = selectedQ?.deliveryDays ? `Delivery: ${selectedQ.deliveryDays} days` : ''
+    const paymentTerms  = [warrantyStr, deliveryStr].filter(Boolean).join(' | ')
+
+    // GST from selected quotation
+    const gstPct = selectedQ?.gstPercent != null ? String(selectedQ.gstPercent) : '18'
 
     reset({
       indentId:           indent.id || '',
       csId:               cs.id,
       selectedSupplierId: selectedQ?.supplierId || '',
       memoType:           'PO_MEMO',
-      areaOfUse:          '',
+      areaOfUse:          indent.department || '',
       make:               '',
       natureOfWork,
-      productDescription: '',
+      productDescription: productDesc,
       itemDescription:    itemDesc,
       baseAmount:         selectedQ?.totalAmount ? String(selectedQ.totalAmount) : '',
       cartage:            'FOR',
-      gstPercent:         '18',
-      paymentTerms:       '',
+      gstPercent:         gstPct,
+      paymentTerms,
       advancePercent:     '',
       modeOfPayment:      'ONLINE',
       lastPurchased:      '',
       quotationDate:      selectedQ?.quotationDate ? fmtD(selectedQ.quotationDate) : '',
       comparativeDate:    cs.createdAt ? fmtD(cs.createdAt) : '',
-      notes:              '',
+      notes:              selectedQ?.remarks || '',
     })
   }
 
@@ -113,6 +143,7 @@ const CreateNFAPage = () => {
         selectedSupplierId: form.selectedSupplierId || null,
         cartage:         form.cartage    || null,
         modeOfPayment:   form.modeOfPayment || null,
+        signatories:     JSON.stringify(signatories),
       }
       const res = await nfaService.create(payload)
       toast.success(`NFA ${res.data.data.nfaNumber} created — signing workflow started`)
@@ -410,6 +441,58 @@ const CreateNFAPage = () => {
               <label className="label">Note / Remarks</label>
               <textarea {...register('notes')} className="input" rows={2}
                 placeholder="Additional justification, special notes..." />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Section 5: Signing Authorities ── */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="font-semibold text-gray-800 flex items-center gap-2"><UserCheck size={16}/> Signing Authorities</h3>
+            <span className="text-xs text-gray-400">Set order, rename & toggle who signs the NFA</span>
+          </div>
+          <div className="card-body space-y-1.5">
+            {signatories.map((s, i) => (
+              <div key={s.key} className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors ${s.show ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-100'}`}>
+                {/* Order number */}
+                <span className="text-xs font-bold text-gray-400 w-5 shrink-0">{i+1}</span>
+
+                {/* Up/Down arrows */}
+                <div className="flex flex-col gap-0.5 shrink-0">
+                  <button type="button" disabled={i === 0}
+                    onClick={() => setSignatories(prev => { const a = [...prev]; [a[i-1], a[i]] = [a[i], a[i-1]]; return a })}
+                    className="p-0.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed">
+                    <ChevronUp size={13}/>
+                  </button>
+                  <button type="button" disabled={i === signatories.length - 1}
+                    onClick={() => setSignatories(prev => { const a = [...prev]; [a[i], a[i+1]] = [a[i+1], a[i]]; return a })}
+                    className="p-0.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-20 disabled:cursor-not-allowed">
+                    <ChevronDown size={13}/>
+                  </button>
+                </div>
+
+                {/* Show/hide checkbox */}
+                <input type="checkbox" checked={s.show}
+                  onChange={e => setSignatories(prev => prev.map((x,j) => j===i ? {...x, show: e.target.checked} : x))}
+                  className="rounded border-gray-300 text-primary-600 shrink-0"/>
+
+                {/* Editable label */}
+                <input
+                  value={s.label}
+                  onChange={e => setSignatories(prev => prev.map((x,j) => j===i ? {...x, label: e.target.value} : x))}
+                  className={`input py-1 text-sm flex-1 ${!s.show ? 'opacity-40' : ''}`}
+                  placeholder={`Signatory ${i+1} name / designation`}
+                  disabled={!s.show}
+                />
+              </div>
+            ))}
+
+            {/* MD — always last */}
+            <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-200 px-3 py-2 bg-gray-50 opacity-60">
+              <span className="text-xs font-bold text-gray-400 w-5">{signatories.length + 1}</span>
+              <div className="w-6 shrink-0"/>
+              <input type="checkbox" checked disabled className="rounded border-gray-300 shrink-0"/>
+              <span className="text-sm text-gray-500 flex-1 pl-1">MD Approval <span className="text-xs text-gray-400">(always last — cannot reorder)</span></span>
             </div>
           </div>
         </div>

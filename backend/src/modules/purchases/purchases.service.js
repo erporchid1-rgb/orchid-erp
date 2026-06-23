@@ -239,4 +239,37 @@ const remove = async (id) => {
   return prisma.purchase.update({ where: { id }, data: { deletedAt: new Date() } });
 };
 
-module.exports = { getAll, getById, create, updateStatus, submitForApproval, approvePurchase, rejectPurchase, uploadQuotation, uploadInvoice, remove };
+const update = async (id, data) => {
+  const purchase = await prisma.purchase.findUnique({ where: { id } });
+  if (!purchase) throw { status: 404, message: 'Purchase not found' };
+  if (purchase.status !== 'DRAFT') throw { status: 400, message: 'Only DRAFT purchases can be edited' };
+  const { items = [], ...purchaseData } = data;
+  let subtotal = 0, totalGst = 0;
+  const processedItems = items.map(item => {
+    const qty = parseFloat(item.quantity) || 0, rate = parseFloat(item.rate) || 0, gstPct = parseFloat(item.gstPercent) || 0;
+    const base = qty * rate, gstAmt = base * gstPct / 100;
+    subtotal += base; totalGst += gstAmt;
+    return { materialId: item.materialId, unit: item.unit, quantity: qty, rate, gstPercent: gstPct, gstAmount: gstAmt, amount: base + gstAmt };
+  });
+  const totalAmount = subtotal + totalGst + (parseFloat(purchaseData.transportCost) || 0) - (parseFloat(purchaseData.discountAmount) || 0);
+  return prisma.$transaction(async (tx) => {
+    await tx.purchaseItem.deleteMany({ where: { purchaseId: id } });
+    return tx.purchase.update({
+      where: { id },
+      data: {
+        ...purchaseData,
+        supplierId:     purchaseData.supplierId,
+        purchaseDate:   purchaseData.purchaseDate  ? new Date(purchaseData.purchaseDate)  : undefined,
+        deliveryDate:   purchaseData.deliveryDate  ? new Date(purchaseData.deliveryDate)  : null,
+        transportCost:  parseFloat(purchaseData.transportCost)  || 0,
+        discountAmount: parseFloat(purchaseData.discountAmount) || 0,
+        paidAmount:     parseFloat(purchaseData.paidAmount)     || 0,
+        subtotal, gstAmount: totalGst, totalAmount,
+        items: { create: processedItems },
+      },
+      include: { supplier: true, items: { include: { material: true } } },
+    });
+  });
+};
+
+module.exports = { getAll, getById, create, update, updateStatus, submitForApproval, approvePurchase, rejectPurchase, uploadQuotation, uploadInvoice, remove };

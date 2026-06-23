@@ -8,7 +8,8 @@ router.use(authenticate);
 
 router.get('/',    indentsController.getAll);
 router.get('/:id', indentsController.getById);
-router.post('/',   indentsController.create);
+router.post('/',   indentsController.create)
+router.put('/:id', indentsController.update);
 
 // Store/Incharge submits indent to HOD
 router.patch('/:id/submit',

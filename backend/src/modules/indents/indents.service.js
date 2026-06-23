@@ -154,4 +154,34 @@ const purchaseHodAction = async (id, action, notes, userId) => {
   });
 };
 
-module.exports = { getAll, getById, create, submitToHOD, hodAction, purchaseHodAction };
+const update = async (id, data) => {
+  const indent = await prisma.indent.findUnique({ where: { id } });
+  if (!indent) throw { status: 404, message: 'Indent not found' };
+  if (indent.status !== 'DRAFT') throw { status: 400, message: 'Only DRAFT indents can be edited' };
+  const { items = [], ...indentData } = data;
+  return prisma.$transaction(async (tx) => {
+    await tx.indentItem.deleteMany({ where: { indentId: id } });
+    return tx.indent.update({
+      where: { id },
+      data: {
+        ...indentData,
+        requiredDate: indentData.requiredDate ? new Date(indentData.requiredDate) : undefined,
+        projectId: indentData.projectId || null,
+        siteId:    indentData.siteId    || null,
+        items: {
+          create: items.map(i => ({
+            materialId:        i.materialId,
+            requestedQty:      parseFloat(i.requestedQty),
+            unit:              i.unit,
+            makeSpecifications: i.makeSpecifications || null,
+            lastPurchaseFrom:  i.lastPurchaseFrom || null,
+            remarks:           i.remarks || null,
+          })),
+        },
+      },
+      include: INCLUDE,
+    });
+  });
+};
+
+module.exports = { getAll, getById, create, update, submitToHOD, hodAction, purchaseHodAction };

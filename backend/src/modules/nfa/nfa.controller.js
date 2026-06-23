@@ -70,4 +70,14 @@ const mdAction = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, create, uploadDraftPO, sign, mdAction };
+const update = async (req, res, next) => {
+  try {
+    const nfa = await service.update(req.params.id, req.body);
+    return sendSuccess(res, nfa, 'NFA updated successfully');
+  } catch (err) {
+    if (err.status) return sendError(res, err.message, err.status);
+    next(err);
+  }
+};
+
+module.exports = { getAll, getById, create, update, uploadDraftPO, sign, mdAction };

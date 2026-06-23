@@ -35,7 +35,7 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'https://orchiderp.netlify.app',
-  process.env.CORS_ORIGIN,
+  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) : []),
 ].filter(Boolean);
 app.use(cors({
   origin: (origin, callback) => {

@@ -390,6 +390,7 @@ model NFA {
   lastPurchased      String?
   quotationDate      DateTime?
   comparativeDate    DateTime?
+  signatories        String?   // JSON: [{key,label,show}] for customizable signing authority labels
 
   status             String    @default("DRAFT")
   createdById        String

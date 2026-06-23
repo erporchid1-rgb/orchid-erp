@@ -90,4 +90,14 @@ const presidentVerify = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, create, addQuotation, uploadQuotationFile, selectSupplier, hodRecommend, userVerify, presidentVerify };
+const update = async (req, res, next) => {
+  try {
+    const cs = await service.update(req.params.id, req.body);
+    return sendSuccess(res, cs, 'Comparative Statement updated');
+  } catch (err) {
+    if (err.status) return sendError(res, err.message, err.status);
+    next(err);
+  }
+};
+
+module.exports = { getAll, getById, create, update, addQuotation, uploadQuotationFile, selectSupplier, hodRecommend, userVerify, presidentVerify };

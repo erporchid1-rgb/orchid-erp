@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { nfaService } from '../../services'
 import { useAuth } from '../../context/AuthContext'
 import { ArrowLeft, Printer, PenLine, CheckCircle, XCircle, PauseCircle, FileCheck, Phone, FileSignature, MessageSquare } from 'lucide-react'
+import { DEFAULT_SIGNATORIES } from './CreateNFAPage'
 import toast from 'react-hot-toast'
 import SignatureModal from '../../components/ui/SignatureModal'
 
@@ -279,15 +280,23 @@ const NFADetailPage = () => {
   }
   const memoTypeLabel = MEMO_TYPE_LABEL[nfa.memoType] || 'Work / Purchase Order Memo'
 
+  // Parse custom signatories (or use defaults)
+  const DEFAULT_SIG_LABELS = { gm: 'GM — Purchase', user: 'User Department', cfo: 'CFO', president: 'President — Projects', dir: 'Executive Director' }
+  const customSigs = (() => {
+    try { return nfa.signatories ? JSON.parse(nfa.signatories) : null } catch { return null }
+  })()
+  const sigLabel = (key) => customSigs?.find(s => s.key === key)?.label ?? DEFAULT_SIG_LABELS[key]
+  const sigShown = (key) => customSigs ? (customSigs.find(s => s.key === key)?.show !== false) : true
+
   // Steps for signing progress timeline
   const STEPS = [
-    { label: 'GM — Purchase',       who: nfa.gmSignedBy,        at: nfa.gmSignedAt,        sig: nfa.gmSignature },
-    { label: 'User Department',     who: nfa.userSignedBy,      at: nfa.userSignedAt,      sig: nfa.userSignature },
-    { label: 'CFO',                 who: nfa.cfoSignedBy,       at: nfa.cfoSignedAt,        sig: nfa.cfoSignature },
-    { label: 'President — Projects', who: nfa.presidentSignedBy, at: nfa.presidentSignedAt, sig: nfa.presidentSignature },
-    { label: 'Exe. Director',       who: nfa.dirSignedBy,       at: nfa.dirSignedAt,        sig: nfa.dirSignature },
-    { label: 'MD Approval',         who: nfa.mdApprovedBy,      at: nfa.mdApprovedAt,       sig: nfa.mdSignature },
-  ]
+    sigShown('gm')        && { label: sigLabel('gm'),        who: nfa.gmSignedBy,        at: nfa.gmSignedAt,        sig: nfa.gmSignature },
+    sigShown('user')      && { label: sigLabel('user'),      who: nfa.userSignedBy,      at: nfa.userSignedAt,      sig: nfa.userSignature },
+    sigShown('cfo')       && { label: sigLabel('cfo'),       who: nfa.cfoSignedBy,       at: nfa.cfoSignedAt,       sig: nfa.cfoSignature },
+    sigShown('president') && { label: sigLabel('president'), who: nfa.presidentSignedBy, at: nfa.presidentSignedAt, sig: nfa.presidentSignature },
+    sigShown('dir')       && { label: sigLabel('dir'),       who: nfa.dirSignedBy,       at: nfa.dirSignedAt,       sig: nfa.dirSignature },
+    { label: 'MD Approval', who: nfa.mdApprovedBy, at: nfa.mdApprovedAt, sig: nfa.mdSignature },
+  ].filter(Boolean)
 
   // Print signature box — shows image if available, else blank line
   const sigBox = (name, role, date, sigImg) => (
@@ -314,6 +323,7 @@ const NFADetailPage = () => {
           body * { visibility: hidden; }
           #nfa-print-area, #nfa-print-area * { visibility: visible; }
           #nfa-print-area { position: fixed; left: 0; top: 0; width: 100%; padding: 16px; }
+          .no-print { display: none !important; }
         }
       `}</style>
 
@@ -463,6 +473,14 @@ const NFADetailPage = () => {
 
       {/* ── Printable NFA Memo ── */}
       <div id="nfa-print-area">
+        {nfa.status === 'DRAFT' && (
+          <div className="no-print flex justify-end p-2 bg-amber-50 border-b border-amber-200">
+            <Link to={`/nfa/${nfa.id}/edit`}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors">
+              <PenLine size={13}/> Edit NFA
+            </Link>
+          </div>
+        )}
         <div style={{
           fontFamily: 'Arial, Helvetica, sans-serif',
           fontSize: '13px',
@@ -602,19 +620,34 @@ const NFADetailPage = () => {
             </div>
           )}
 
-          {/* Signature Section */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '2px solid #000', minHeight: '110px' }}>
-            <div style={{ borderRight: '1px solid #000', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {sigBox(nfa.gmSignedBy?.name,  'GM — Purchase',   nfa.gmSignedAt,  nfa.gmSignature)}
-              {sigBox(nfa.userSignedBy?.name, 'User Department', nfa.userSignedAt, nfa.userSignature)}
-              {sigBox(nfa.cfoSignedBy?.name,  'CFO',             nfa.cfoSignedAt,  nfa.cfoSignature)}
-            </div>
-            <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {sigBox(nfa.presidentSignedBy?.name, 'President — Projects', nfa.presidentSignedAt, nfa.presidentSignature)}
-              {sigBox(nfa.dirSignedBy?.name,        'Executive Director',   nfa.dirSignedAt,        nfa.dirSignature)}
-              {nfa.mdApprovedBy && sigBox(nfa.mdApprovedBy?.name, 'MD', nfa.mdApprovedAt, nfa.mdSignature)}
-            </div>
-          </div>
+          {/* Signature Section — respects custom order, labels, and visibility */}
+          {(() => {
+            const sigData = {
+              gm:        { name: nfa.gmSignedBy?.name,        at: nfa.gmSignedAt,        img: nfa.gmSignature },
+              user:      { name: nfa.userSignedBy?.name,      at: nfa.userSignedAt,      img: nfa.userSignature },
+              cfo:       { name: nfa.cfoSignedBy?.name,       at: nfa.cfoSignedAt,       img: nfa.cfoSignature },
+              president: { name: nfa.presidentSignedBy?.name, at: nfa.presidentSignedAt, img: nfa.presidentSignature },
+              dir:       { name: nfa.dirSignedBy?.name,       at: nfa.dirSignedAt,       img: nfa.dirSignature },
+            }
+            // Use stored order (from signatories) filtered to visible only
+            const orderedKeys = (customSigs || DEFAULT_SIGNATORIES).filter(s => s.show !== false).map(s => s.key)
+            const mdBox = sigBox(nfa.mdApprovedBy?.name, 'MD', nfa.mdApprovedAt, nfa.mdSignature)
+            // Split into left (first half) and right (second half + MD)
+            const half = Math.ceil(orderedKeys.length / 2)
+            const leftKeys  = orderedKeys.slice(0, half)
+            const rightKeys = orderedKeys.slice(half)
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '2px solid #000', minHeight: '110px' }}>
+                <div style={{ borderRight: '1px solid #000', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {leftKeys.map(k => sigBox(sigData[k]?.name, sigLabel(k), sigData[k]?.at, sigData[k]?.img))}
+                </div>
+                <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {rightKeys.map(k => sigBox(sigData[k]?.name, sigLabel(k), sigData[k]?.at, sigData[k]?.img))}
+                  {mdBox}
+                </div>
+              </div>
+            )
+          })()}
         </div>
       </div>
     </div>

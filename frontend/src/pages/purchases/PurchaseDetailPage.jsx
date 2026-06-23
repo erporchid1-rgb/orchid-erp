@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { purchasesService } from '../../services'
 import { formatCurrency, formatDate, getStatusBadge } from '../../utils/helpers'
-import { ArrowLeft, Printer, CheckCircle, XCircle, Send, FileCheck } from 'lucide-react'
+import { ArrowLeft, Printer, CheckCircle, XCircle, Send, FileCheck, Pencil } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 
@@ -123,6 +123,7 @@ const PurchaseDetailPage = () => {
           body * { visibility: hidden; }
           #po-print-area, #po-print-area * { visibility: visible; }
           #po-print-area { position: fixed; left: 0; top: 0; width: 100%; }
+          .no-print { display: none !important; }
         }
       `}</style>
 
@@ -237,6 +238,14 @@ const PurchaseDetailPage = () => {
 
       {/* ── PRINTABLE PO (A4) ── */}
       <div id="po-print-area">
+        {purchase.status === 'DRAFT' && (
+          <div className="no-print flex justify-end p-2 bg-amber-50 border-b border-amber-200">
+            <Link to={`/purchases/${purchase.id}/edit`}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors">
+              <Pencil size={13}/> Edit PO
+            </Link>
+          </div>
+        )}
         <div style={{
           fontFamily: 'Arial, Helvetica, sans-serif',
           fontSize: '12px',

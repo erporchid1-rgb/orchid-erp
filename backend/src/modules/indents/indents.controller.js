@@ -62,4 +62,14 @@ const purchaseHodAction = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, create, submitToHOD, hodAction, purchaseHodAction };
+const update = async (req, res, next) => {
+  try {
+    const indent = await indentsService.update(req.params.id, req.body);
+    return sendSuccess(res, indent, 'Indent updated successfully');
+  } catch (err) {
+    if (err.status) return sendError(res, err.message, err.status);
+    next(err);
+  }
+};
+
+module.exports = { getAll, getById, create, update, submitToHOD, hodAction, purchaseHodAction };

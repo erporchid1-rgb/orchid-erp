@@ -16,6 +16,12 @@ router.post('/',
   ctrl.create
 );
 
+// Update DRAFT CS
+router.put('/:id',
+  requireRole('PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'),
+  ctrl.update
+);
+
 // Add a quotation
 router.post('/:id/quotations',
   requireRole('PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'),

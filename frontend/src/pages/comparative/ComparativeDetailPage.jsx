@@ -4,7 +4,7 @@ import { comparativeService } from '../../services'
 import { useAuth } from '../../context/AuthContext'
 import {
   ArrowLeft, BarChart2, CheckCircle, Printer,
-  Star, ThumbsUp, MessageSquare, RefreshCw, User,
+  Star, ThumbsUp, MessageSquare, RefreshCw, User, Pencil,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -165,6 +165,7 @@ const ComparativeDetailPage = () => {
         @media print {
           body > * { display: none !important; }
           #cs-print-area { display: block !important; position: static !important; }
+          .no-print { display: none !important; }
         }
         #cs-print-area { display: block; }
       `}</style>
@@ -259,6 +260,14 @@ const ComparativeDetailPage = () => {
           PRINTABLE COMPARATIVE DOCUMENT — visible on screen + on print
           ════════════════════════════════════════════════════════════════ */}
       <div id="cs-print-area" className="mt-2 bg-white shadow-lg rounded-lg overflow-hidden">
+        {cs.status === 'DRAFT' && (
+          <div className="no-print flex justify-end p-2 bg-amber-50 border-b border-amber-200">
+            <Link to={`/comparative/${cs.id}/edit`}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors">
+              <Pencil size={13}/> Edit CS
+            </Link>
+          </div>
+        )}
         <div style={{fontFamily:'Arial, sans-serif', fontSize:'10px', maxWidth:'100%'}}>
 
           {/* ── Title row ── */}

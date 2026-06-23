@@ -145,4 +145,25 @@ const mdAction = async (id, action, notes, userId, signature, approvalMode, reco
   });
 };
 
-module.exports = { getAll, getById, create, uploadDraftPO, sign, mdAction };
+const update = async (id, data) => {
+  const nfa = await prisma.nFA.findUnique({ where: { id } });
+  if (!nfa) throw { status: 404, message: 'NFA not found' };
+  if (nfa.status !== 'DRAFT') throw { status: 400, message: 'Only DRAFT NFAs can be edited' };
+  const { id: _id, nfaNumber, indentId, csId, createdById, status, ...updateData } = data;
+  return prisma.nFA.update({
+    where: { id },
+    data: {
+      ...updateData,
+      baseAmount:      parseFloat(updateData.baseAmount)      || 0,
+      gstAmount:       parseFloat(updateData.gstAmount)       || 0,
+      gstPercent:      updateData.gstPercent  ? parseFloat(updateData.gstPercent)  : null,
+      totalAmount:     parseFloat(updateData.totalAmount)     || 0,
+      advancePercent:  updateData.advancePercent ? parseFloat(updateData.advancePercent) : null,
+      quotationDate:   updateData.quotationDate  ? new Date(updateData.quotationDate)  : null,
+      comparativeDate: updateData.comparativeDate ? new Date(updateData.comparativeDate) : null,
+    },
+    include: INCLUDE,
+  });
+};
+
+module.exports = { getAll, getById, create, update, uploadDraftPO, sign, mdAction };

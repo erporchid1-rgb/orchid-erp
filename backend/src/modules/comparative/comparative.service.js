@@ -208,7 +208,52 @@ const presidentVerify = async (id, userId, notes, supplierId) => {
   return prisma.comparativeStatement.findUnique({ where: { id }, include: INCLUDE });
 };
 
+const update = async (id, data) => {
+  const cs = await prisma.comparativeStatement.findUnique({ where: { id } });
+  if (!cs) throw { status: 404, message: 'CS not found' };
+  if (cs.status !== 'DRAFT') throw { status: 400, message: 'Only DRAFT comparative statements can be edited' };
+  const { quotations = [], items = [], ...csData } = data;
+  return prisma.$transaction(async (tx) => {
+    await tx.cSQuotation.deleteMany({ where: { csId: id } });
+    await tx.cSItem.deleteMany({ where: { csId: id } });
+    return tx.comparativeStatement.update({
+      where: { id },
+      data: {
+        notes: csData.notes || null,
+        poWithoutCS: csData.poWithoutCS || false,
+        quotations: {
+          create: quotations.map(q => ({
+            supplierId:    q.supplierId,
+            quotationRef:  q.quotationRef  || null,
+            quotationDate: q.quotationDate ? new Date(q.quotationDate) : null,
+            totalAmount:   q.totalAmount   ? parseFloat(q.totalAmount)  : null,
+            gstPercent:    q.gstPercent    ? parseFloat(q.gstPercent)   : null,
+            deliveryDays:  q.deliveryDays  ? parseInt(q.deliveryDays)   : null,
+            warranty:      q.warranty      || null,
+            remarks:       q.remarks       || null,
+            isSelected:    q.isSelected    || false,
+          })),
+        },
+        items: {
+          create: items.map(i => ({
+            materialId:    i.materialId,
+            qty:           parseFloat(i.qty),
+            unit:          i.unit,
+            specification: i.specification || null,
+            supplier1Rate: i.supplier1Rate ? parseFloat(i.supplier1Rate) : null,
+            supplier2Rate: i.supplier2Rate ? parseFloat(i.supplier2Rate) : null,
+            supplier3Rate: i.supplier3Rate ? parseFloat(i.supplier3Rate) : null,
+            supplier4Rate: i.supplier4Rate ? parseFloat(i.supplier4Rate) : null,
+            selectedRate:  i.selectedRate  ? parseFloat(i.selectedRate)  : null,
+          })),
+        },
+      },
+      include: INCLUDE,
+    });
+  });
+};
+
 module.exports = {
-  getAll, getById, create, addQuotation, updateQuotationFile,
+  getAll, getById, create, update, addQuotation, updateQuotationFile,
   selectSupplier, hodRecommend, userVerify, presidentVerify,
 };
