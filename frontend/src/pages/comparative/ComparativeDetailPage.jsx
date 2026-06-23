@@ -118,6 +118,7 @@ const ComparativeDetailPage = () => {
   const [editItems, setEditItems]       = useState([])
   const [editQuotes, setEditQuotes]     = useState([])
   const [editDetailRows, setDetailRows] = useState([])  // [{label, values:[per quote]}]
+  const [editNotes, setEditNotes]       = useState([])  // string[]
   const [materials, setMaterials]       = useState([])
   const [isDirty, setIsDirty]           = useState(false)
 
@@ -165,6 +166,13 @@ const ComparativeDetailPage = () => {
     } else {
       initDefaultDetailRows(qs)
     }
+    // Init notes
+    try {
+      const parsed = cs.notes ? JSON.parse(cs.notes) : null
+      setEditNotes(Array.isArray(parsed) ? parsed : ['QUOTES ATTACHED', cs.notes || '', ''])
+    } catch {
+      setEditNotes(['QUOTES ATTACHED', cs.notes || '', ''])
+    }
     setIsDirty(false)
     materialsService.getAll({ limit: 500 }).then(r => setMaterials(r.data.data || [])).catch(()=>{})
   }, [cs])
@@ -200,6 +208,10 @@ const ComparativeDetailPage = () => {
     setIsDirty(true)
   }
 
+  const updNote  = (i, val) => { setEditNotes(prev => prev.map((n, j) => j===i ? val : n)); setIsDirty(true) }
+  const delNote  = (i)     => { setEditNotes(prev => prev.filter((_, j) => j !== i)); setIsDirty(true) }
+  const addNote  = ()      => { setEditNotes(prev => [...prev, '']); setIsDirty(true) }
+
   const doAction = async (fn, msg) => {
     setActing(true)
     try { await fn(); toast.success(msg); load() }
@@ -225,6 +237,7 @@ const ComparativeDetailPage = () => {
     setSaving(true)
     try {
       await comparativeService.update(id, {
+        notes: JSON.stringify(editNotes),
         detailRowsJson: JSON.stringify(editDetailRows),
         quotations: editQuotes.map(q => ({
           supplierId: q.supplierId,
@@ -713,13 +726,35 @@ const ComparativeDetailPage = () => {
               <tr style={{backgroundColor:'#e8e8e8'}}>
                 <td style={{padding:'3px 8px', fontWeight:'700', fontSize:'10px'}}>NOTE</td>
                 <td></td>
+                {isSheet && <td style={{width:'24px'}} className="no-print"></td>}
               </tr>
-              {['QUOTES ATTACHED', cs.notes || '', ''].map((note, i) => (
-                <tr key={i}>
+              {(isSheet ? editNotes : (() => {
+                try { const p = cs.notes ? JSON.parse(cs.notes) : null; return Array.isArray(p) ? p : ['QUOTES ATTACHED', cs.notes || '', ''] }
+                catch { return ['QUOTES ATTACHED', cs.notes || '', ''] }
+              })()).map((note, i) => (
+                <tr key={i} className={isSheet ? 'xl-row' : ''}>
                   <td style={{padding:'2px 8px', fontSize:'10px', width:'24px', verticalAlign:'top', fontWeight:'500'}}>{i+1}.</td>
-                  <td style={{padding:'2px 8px', fontSize:'10px', borderLeft:'1px solid #ddd'}}>{note}</td>
+                  <td style={{padding: isSheet ? '1px 2px' : '2px 8px', fontSize:'10px', borderLeft:'1px solid #ddd'}}>
+                    {isSheet
+                      ? <XCell value={note} onChange={v => updNote(i, v)} placeholder="Note text…" />
+                      : note}
+                  </td>
+                  {isSheet && (
+                    <td style={{width:'24px', padding:'1px 2px'}} className="no-print">
+                      <button className="xl-del" onClick={() => delNote(i)} title="Delete note">×</button>
+                    </td>
+                  )}
                 </tr>
               ))}
+              {isSheet && (
+                <tr className="xl-add-row no-print">
+                  <td colSpan={3}>
+                    <button onClick={addNote} style={{fontSize:'10px',color:'#059669',cursor:'pointer',background:'none',border:'none',padding:'2px 4px',display:'flex',alignItems:'center',gap:'3px'}}>
+                      <span style={{fontSize:'16px',lineHeight:1}}>+</span> Add Note
+                    </button>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
 
