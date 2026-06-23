@@ -35,9 +35,9 @@ const NFAPage = () => {
   const isPurchaseHOD = ['PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'].includes(user?.role)
   const isMD          = ['MD', 'ADMIN'].includes(user?.role)
 
-  // Signing role map
+  // PURCHASE_HOD (Gagan) is first signatory; GM_PURCHASE (Sumit) creates/submits only
   const signAction = {
-    GM_PURCHASE:        'gm_sign',
+    PURCHASE_HOD:       'gm_sign',
     USER_HOD:           'user_sign',
     CFO:                'cfo_sign',
     PRESIDENT_PROJECTS: 'president_sign',

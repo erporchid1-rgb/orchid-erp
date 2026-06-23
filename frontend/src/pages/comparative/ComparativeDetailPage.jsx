@@ -123,7 +123,8 @@ const ComparativeDetailPage = () => {
   const [materials, setMaterials]       = useState([])
   const [isDirty, setIsDirty]           = useState(false)
 
-  const isPurchaseHOD = ['PURCHASE_HOD','GM_PURCHASE','ADMIN'].includes(user?.role)
+  const isPurchaseHOD = ['PURCHASE_HOD','GM_PURCHASE','ADMIN'].includes(user?.role) // edit access
+  const isHODApprover = ['PURCHASE_HOD','ADMIN'].includes(user?.role)               // recommend/approve
   const isUserHOD     = ['USER_HOD','ADMIN'].includes(user?.role)
   const isPresident   = ['PRESIDENT_PROJECTS','ADMIN'].includes(user?.role)
 
@@ -621,9 +622,9 @@ const ComparativeDetailPage = () => {
       </div>
 
       {/* ── Action panels ── */}
-      {isPurchaseHOD && cs.status==='DRAFT' && (
+      {isHODApprover && cs.status==='DRAFT' && (
         <div className="mb-4 no-print">
-          <ActionPanel title="Purchase HOD — Recommend this CS" color="blue" icon={ThumbsUp}
+          <ActionPanel title="HOD Purchase — Recommend this CS" color="blue" icon={ThumbsUp}
             quotations={quotations} selectedSupplierId={cs.selectedSupplierId} canChangeSupplier={false}
             acting={acting} onSubmit={(notes)=>doAction(()=>comparativeService.hodRecommend(id,notes),'CS recommended')} />
         </div>

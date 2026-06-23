@@ -42,7 +42,7 @@ export const getRoleLabel = (role) => {
   const map = {
     ADMIN: 'Admin', MD: 'MD', EXE_DIRECTOR: 'Exe. Director',
     PRESIDENT_PROJECTS: 'President — Projects', CFO: 'CFO',
-    GM_PURCHASE: 'GM — Purchase', PURCHASE_HOD: 'Purchase HOD',
+    GM_PURCHASE: 'Dy. Manager — Purchase', PURCHASE_HOD: 'HOD — Purchase',
     USER_HOD: 'User HOD', INCHARGE: 'In-charge (MEP/Civil)',
     STORE_MANAGER: 'Store Manager', FINANCE: 'Finance',
     ACCOUNTANT: 'Accountant', SITE_ENGINEER: 'Site Engineer',
