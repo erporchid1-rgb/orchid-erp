@@ -4,9 +4,10 @@ import { comparativeService, materialsService } from '../../services'
 import { useAuth } from '../../context/AuthContext'
 import {
   ArrowLeft, BarChart2, CheckCircle, Printer,
-  Star, ThumbsUp, MessageSquare, RefreshCw, User, Save,
+  Star, ThumbsUp, MessageSquare, RefreshCw, User, Save, FileSpreadsheet,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import XLSXStyle from 'xlsx-js-style'
 
 const STATUS_BADGE  = { DRAFT:'badge badge-gray', HOD_RECOMMENDED:'badge badge-blue', USER_VERIFIED:'badge badge-yellow', FINAL_VERIFIED:'badge badge-green' }
 const STATUS_LABEL  = { DRAFT:'Draft', HOD_RECOMMENDED:'HOD Recommended', USER_VERIFIED:'User Verified', FINAL_VERIFIED:'Final Verified' }
@@ -268,6 +269,220 @@ const ComparativeDetailPage = () => {
     } finally { setSaving(false) }
   }
 
+  const downloadExcel = () => {
+    try {
+      const wb = XLSXStyle.utils.book_new()
+      const ws = {}
+      const merges = []
+
+      const qs    = quotations
+      const numQ  = qs.length
+      const totalCols = 5 + numQ * 2
+
+      /* ── helpers ── */
+      const enc = (r, c) => XLSXStyle.utils.encode_cell({ r, c })
+      const C = (r, c, v, s) => { ws[enc(r,c)] = { v: v ?? '', t: typeof v === 'number' ? 'n' : 's', s } }
+      const CN = (r, c, v, s, z = '#,##0.00') => { ws[enc(r,c)] = { v: v ?? 0, t: 'n', z, s } }
+      const M = (r1, c1, r2, c2) => merges.push({ s: { r: r1, c: c1 }, e: { r: r2, c: c2 } })
+
+      const brd = (style = 'thin', rgb = 'AAAAAA') => ({ style, color: { rgb } })
+      const allB = (style = 'thin', rgb = 'AAAAAA') => ({ top: brd(style,rgb), bottom: brd(style,rgb), left: brd(style,rgb), right: brd(style,rgb) })
+
+      const SUP_HEX = ['DBEAFE','DCFCE7','FEF3C7','FCE7F3']
+
+      const sTitle = { font:{bold:true,sz:12,color:{rgb:'FFFFFF'}}, fill:{patternType:'solid',fgColor:{rgb:'2D2D2D'}}, alignment:{horizontal:'center',vertical:'center',wrapText:true}, border:allB('medium','000000') }
+      const sTitleR = { ...sTitle, alignment:{horizontal:'right',vertical:'center'} }
+      const sInfo  = { font:{sz:9}, fill:{patternType:'solid',fgColor:{rgb:'FFFFFF'}}, alignment:{horizontal:'left',vertical:'center',wrapText:true}, border:allB('thin','CCCCCC') }
+      const sHdr   = { font:{bold:true,sz:9}, fill:{patternType:'solid',fgColor:{rgb:'E8E8E8'}}, alignment:{horizontal:'center',vertical:'center',wrapText:true}, border:allB('thin','AAAAAA') }
+      const mkSHdr = (qi) => ({ font:{bold:true,sz:9}, fill:{patternType:'solid',fgColor:{rgb:SUP_HEX[qi]||'E8E8E8'}}, alignment:{horizontal:'center',vertical:'center',wrapText:true}, border:allB('thin','AAAAAA') })
+      const sCell  = { font:{sz:9}, alignment:{horizontal:'left',  vertical:'center',wrapText:true}, border:allB() }
+      const sCellC = { font:{sz:9}, alignment:{horizontal:'center',vertical:'center',wrapText:true}, border:allB() }
+      const sCellR = { font:{sz:9}, alignment:{horizontal:'right', vertical:'center',wrapText:true}, border:allB() }
+      const sCellB = { font:{bold:true,sz:9}, alignment:{horizontal:'left',vertical:'center',wrapText:true}, border:allB() }
+      const sTot   = { font:{bold:true,sz:9}, fill:{patternType:'solid',fgColor:{rgb:'F0F0F0'}}, alignment:{horizontal:'right',vertical:'center'}, border:allB() }
+      const sGrand = { font:{bold:true,sz:9}, fill:{patternType:'solid',fgColor:{rgb:'F0FDF4'}}, alignment:{horizontal:'right',vertical:'center'}, border:allB() }
+      const sNHdr  = { font:{bold:true,sz:9}, fill:{patternType:'solid',fgColor:{rgb:'E8E8E8'}}, alignment:{horizontal:'left',vertical:'center'}, border:allB() }
+      const sNote  = { font:{sz:9}, alignment:{horizontal:'left',vertical:'center',wrapText:true}, border:allB() }
+      const sNotN  = { font:{bold:true,sz:9}, alignment:{horizontal:'center',vertical:'center'}, border:allB() }
+      const sAlt   = (i) => ({ font:{sz:9},fill:{patternType:'solid',fgColor:{rgb:i%2===0?'FAFAFA':'FFFFFF'}}, alignment:{horizontal:'left',vertical:'center',wrapText:true}, border:allB() })
+      const sAltB  = (i) => ({ font:{bold:true,sz:9},fill:{patternType:'solid',fgColor:{rgb:i%2===0?'FAFAFA':'FFFFFF'}}, alignment:{horizontal:'left',vertical:'center',wrapText:true}, border:allB() })
+      const sAltR  = (i) => ({ font:{sz:9},fill:{patternType:'solid',fgColor:{rgb:i%2===0?'FAFAFA':'FFFFFF'}}, alignment:{horizontal:'right',vertical:'center',wrapText:true}, border:allB() })
+
+      let row = 0
+
+      /* ── Row 0: Title ── */
+      const titleText = `Comparative for Supply of ${titleItems||'Materials'} at ${titleSite||'Head Office'}`
+      C(row, 0, titleText, sTitle)
+      for (let c = 1; c < totalCols - 1; c++) C(row, c, '', sTitle)
+      C(row, totalCols-1, fmtD(cs.createdAt), sTitleR)
+      M(row, 0, row, totalCols-2)
+      row++
+
+      /* ── Row 1: Info bar ── */
+      const infoItems = [
+        `Dept: ${cs.indent?.department||'—'}`,
+        `Indent Date: ${fmtD(cs.indent?.createdAt||cs.createdAt)}`,
+        `Site: ${cs.indent?.site?.siteName||'HO'}`,
+        `Indent No.: ${cs.indent?.indentNumber||'—'}`,
+        `Req Type: ${cs.indent?.category||'Regular'}`,
+        `Annexure: "B"`,
+      ]
+      const baseSpan = Math.floor(totalCols / infoItems.length)
+      let infoCol = 0
+      infoItems.forEach((text, i) => {
+        const span = i === infoItems.length-1 ? totalCols - infoCol : baseSpan
+        C(row, infoCol, text, sInfo)
+        for (let c = infoCol+1; c < infoCol+span; c++) C(row, c, '', sInfo)
+        if (span > 1) M(row, infoCol, row, infoCol+span-1)
+        infoCol += span
+      })
+      row++
+
+      /* ── Rows 2-3: Column headers ── */
+      const hRow = row
+      C(hRow, 0, 'Sr.\nNo.', sHdr)
+      C(hRow, 1, 'Item Description', sHdr)
+      C(hRow, 2, 'Specifications', sHdr)
+      C(hRow, 3, 'UOM', sHdr)
+      C(hRow, 4, 'Qty', sHdr)
+      M(hRow, 0, hRow+1, 0); M(hRow, 1, hRow+1, 1); M(hRow, 2, hRow+1, 2)
+      M(hRow, 3, hRow+1, 3); M(hRow, 4, hRow+1, 4)
+      for (let c = 0; c <= 4; c++) C(hRow+1, c, '', sHdr)
+
+      qs.forEach((q, qi) => {
+        const sc = 5 + qi*2
+        const sh = mkSHdr(qi)
+        C(hRow,   sc, `M/s ${q.supplier?.supplierName||`Supplier ${qi+1}`}`, sh)
+        C(hRow,   sc+1, '', sh)
+        C(hRow+1, sc,   'Rate (₹)',   sh)
+        C(hRow+1, sc+1, 'Amount (₹)', sh)
+        M(hRow, sc, hRow, sc+1)
+      })
+      row += 2
+
+      /* ── Item rows ── */
+      displayItems.forEach((item, i) => {
+        const qty = parseFloat(item.qty) || 0
+        const matName = isSheet
+          ? (materials.find(m=>m.id===item.materialId)?.materialName || item.materialName || '')
+          : (item.material?.materialName || '')
+        C(row, 0, i+1, sCellC); C(row, 1, matName, sCellB)
+        C(row, 2, item.specification||'', sCell)
+        C(row, 3, item.unit||'', sCellC)
+        CN(row, 4, qty, sCellC, '#,##0.##')
+
+        qs.forEach((q, qi) => {
+          const sc = 5 + qi*2
+          const r = isSheet
+            ? (item[E_RATE_KEYS[qi]] !== '' ? parseFloat(item[E_RATE_KEYS[qi]]) : null)
+            : getRate(item, qi)
+          const amt = r != null ? qty * r : null
+          r   != null ? CN(row, sc,   r,   sCellR) : C(row, sc,   '', sCell)
+          amt != null ? CN(row, sc+1, amt, sCellR) : C(row, sc+1, '', sCell)
+        })
+        row++
+      })
+
+      /* ── Totals ── */
+      // Total
+      C(row, 0, 'Total', sTot)
+      for (let c = 1; c <= 4; c++) C(row, c, '', sTot)
+      M(row, 0, row, 4)
+      qs.forEach((q, qi) => {
+        const sc = 5 + qi*2
+        const sub = isSheet ? getEditSub(qi) : getColSub(qi)
+        C(row, sc, '', sTot)
+        sub > 0 ? CN(row, sc+1, sub, sTot) : (q.totalAmount ? CN(row, sc+1, q.totalAmount, sTot) : C(row, sc+1, '', sTot))
+      })
+      row++
+
+      // Cartage
+      C(row, 0, 'Cartage', sCell)
+      for (let c = 1; c <= 4; c++) C(row, c, '', sCell)
+      M(row, 0, row, 4)
+      qs.forEach((_, qi) => { const sc=5+qi*2; C(row,sc,'',sCell); C(row,sc+1,'FOR',sCellC) })
+      row++
+
+      // GST
+      const gstPct = parseFloat((isSheet ? editQuotes[0] : qs[0])?.gstPercent) || 18
+      C(row, 0, `GST ${gstPct}%`, sCell)
+      for (let c = 1; c <= 4; c++) C(row, c, '', sCell)
+      M(row, 0, row, 4)
+      displayQuotes.forEach((q, qi) => {
+        const sc = 5+qi*2
+        const sub = isSheet ? getEditSub(qi) : getColSub(qi)
+        const gst = sub > 0 ? sub * (parseFloat(q.gstPercent)||18) / 100 : null
+        C(row, sc, '', sCell)
+        gst ? CN(row, sc+1, gst, sCellR) : C(row, sc+1, '', sCell)
+      })
+      row++
+
+      // Grand Total
+      C(row, 0, 'Total Amount', sGrand)
+      for (let c = 1; c <= 4; c++) C(row, c, '', sGrand)
+      M(row, 0, row, 4)
+      displayQuotes.forEach((q, qi) => {
+        const sc = 5+qi*2
+        const sub = isSheet ? getEditSub(qi) : getColSub(qi)
+        const grand = sub > 0 ? sub + sub*(parseFloat(q.gstPercent)||18)/100 : (q.totalAmount||null)
+        C(row, sc, '', sGrand)
+        grand ? CN(row, sc+1, grand, sGrand) : C(row, sc+1, '', sGrand)
+      })
+      row++
+
+      /* ── Detail rows ── */
+      const drRows = isSheet ? editDetailRows : detailRows
+      drRows.forEach((drRow, ri) => {
+        const label = isSheet ? drRow.label : `${ri+8}.  ${drRow.label||''}`
+        C(row, 0, label, sAltB(ri))
+        for (let c = 1; c <= 4; c++) C(row, c, '', sAlt(ri))
+        M(row, 0, row, 4)
+        qs.forEach((q, qi) => {
+          const sc = 5+qi*2
+          const val = isSheet ? (drRow.values?.[qi]??'') : (drRow.fn ? drRow.fn(q,qi) : '')
+          C(row, sc, val, sAlt(ri))
+          C(row, sc+1, '', sAlt(ri))
+          M(row, sc, row, sc+1)
+        })
+        row++
+      })
+
+      /* ── Notes ── */
+      C(row, 0, 'NOTE', sNHdr)
+      for (let c = 1; c < totalCols; c++) C(row, c, '', sNHdr)
+      M(row, 0, row, totalCols-1)
+      row++
+
+      const noteList = isSheet ? editNotes : (() => {
+        try { const p = cs.notes ? JSON.parse(cs.notes) : null; return Array.isArray(p) ? p : ['QUOTES ATTACHED', cs.notes||'', ''] }
+        catch { return ['QUOTES ATTACHED', cs.notes||'', ''] }
+      })()
+      noteList.forEach((note, i) => {
+        C(row, 0, `${i+1}.`, sNotN)
+        C(row, 1, note, sNote)
+        for (let c = 2; c < totalCols; c++) C(row, c, '', sNote)
+        M(row, 1, row, totalCols-1)
+        row++
+      })
+
+      /* ── Sheet metadata ── */
+      ws['!ref']    = XLSXStyle.utils.encode_range({ s:{r:0,c:0}, e:{r:row-1,c:totalCols-1} })
+      ws['!merges'] = merges
+      ws['!cols']   = [
+        {wch:5}, {wch:24}, {wch:20}, {wch:7}, {wch:6},
+        ...Array(numQ*2).fill(null).map((_, i) => ({wch: i%2===0 ? 13 : 14})),
+      ]
+      ws['!rows'] = [{ hpt: 28 }, { hpt: 18 }, { hpt: 22 }, { hpt: 18 }]
+
+      XLSXStyle.utils.book_append_sheet(wb, ws, 'Comparative')
+      XLSXStyle.writeFile(wb, `CS-${cs.csNumber}.xlsx`)
+      toast.success('Excel downloaded!')
+    } catch (err) {
+      console.error(err)
+      toast.error('Excel download failed')
+    }
+  }
+
   if (loading) return (
     <div className="flex justify-center py-16">
       <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin"/>
@@ -396,6 +611,9 @@ const ComparativeDetailPage = () => {
               ✏️ Click any cell to edit
             </span>
           )}
+          <button onClick={downloadExcel} className="btn-secondary flex items-center gap-2 no-print" style={{borderColor:'#16a34a',color:'#16a34a'}}>
+            <FileSpreadsheet size={14}/> Download Excel
+          </button>
           <button onClick={()=>window.print()} className="btn-secondary flex items-center gap-2 no-print">
             <Printer size={14}/> Print CS
           </button>
