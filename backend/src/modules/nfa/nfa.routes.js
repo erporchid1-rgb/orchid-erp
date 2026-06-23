@@ -30,8 +30,9 @@ router.post('/:id/upload-draft-po',
 
 // Signing endpoints — each role signs in order
 // body: { action: 'gm_sign' | 'user_sign' | 'cfo_sign' | 'president_sign' | 'dir_sign' }
+// PURCHASE_HOD can call gm_sign to "submit for approval" (advances without GM signature)
 router.patch('/:id/sign',
-  requireRole('GM_PURCHASE', 'USER_HOD', 'CFO', 'PRESIDENT_PROJECTS', 'EXE_DIRECTOR', 'ADMIN'),
+  requireRole('PURCHASE_HOD', 'GM_PURCHASE', 'USER_HOD', 'CFO', 'PRESIDENT_PROJECTS', 'EXE_DIRECTOR', 'ADMIN'),
   ctrl.sign
 );
 

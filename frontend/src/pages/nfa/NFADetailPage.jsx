@@ -184,7 +184,8 @@ const NFADetailPage = () => {
   const [sigModal, setSigModal] = useState({ open: false, title: '', onConfirm: null })
 
   const isMD          = ['MD', 'ADMIN'].includes(user?.role)
-  const isPurchaseHOD = ['PURCHASE_HOD', 'GM_PURCHASE'].includes(user?.role)
+  const isPurchaseHOD = ['PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'].includes(user?.role)
+  const isHODOnly     = user?.role === 'PURCHASE_HOD'  // can submit but not sign
 
   const signAction = {
     GM_PURCHASE:        'gm_sign',
@@ -461,6 +462,19 @@ const NFADetailPage = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {isHODOnly && nfa.status === 'DRAFT' && (
+              <button
+                onClick={() => {
+                  if (!window.confirm('Submit this NFA for approval? It will be locked for editing and move to the next signing stage.')) return
+                  doAction(() => nfaService.sign(id, 'gm_sign', null), 'NFA submitted for approval')
+                }}
+                disabled={actionLoading || isDirty}
+                title={isDirty ? 'Save changes before submitting' : ''}
+                className="btn-primary flex items-center gap-2 bg-green-700 hover:bg-green-800"
+              >
+                <CheckCircle size={15} /> Submit for Approval
+              </button>
+            )}
             {canSign() && (
               <button
                 onClick={openSignModal}
