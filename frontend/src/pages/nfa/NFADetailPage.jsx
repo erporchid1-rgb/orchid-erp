@@ -216,7 +216,7 @@ const NFADetailPage = () => {
   // Init edit state when NFA loads in DRAFT
   useEffect(() => {
     if (!nfa) return
-    if (nfa.status !== 'DRAFT') return
+    if (!isPurchaseHOD || nfa.status !== 'DRAFT') return
     setEditNFA({
       memoType:           nfa.memoType           || 'PO_MEMO',
       make:               nfa.make               || '',
@@ -328,7 +328,7 @@ const NFADetailPage = () => {
   )
   if (!nfa) return <div className="text-center py-20 text-gray-500">NFA not found</div>
 
-  const isNFASheet = nfa.status === 'DRAFT'
+  const isNFASheet = isPurchaseHOD && nfa.status === 'DRAFT'
 
   const projectSite = [
     nfa.indent?.project?.projectName,
