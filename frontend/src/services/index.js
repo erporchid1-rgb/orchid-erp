@@ -74,6 +74,7 @@ export const nfaService = {
   sign: (id, action, signature) => api.patch(`/nfa/${id}/sign`, { action, signature }),
   mdAction: (id, action, notes, signature) => api.patch(`/nfa/${id}/md-action`, { action, notes, signature, approvalMode: 'DIGITAL' }),
   mdRecordAction: (id, action, notes, approvalMode) => api.patch(`/nfa/${id}/md-action`, { action, notes, approvalMode }),
+  markLeave: (id, signatoryKey) => api.patch(`/nfa/${id}/mark-leave`, { signatoryKey }),
 }
 
 export const mrnService = {

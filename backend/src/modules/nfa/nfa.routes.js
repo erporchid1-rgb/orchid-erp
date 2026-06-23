@@ -35,6 +35,12 @@ router.patch('/:id/sign',
   ctrl.sign
 );
 
+// Mark a signatory as on leave — Purchase HOD skips that step
+router.patch('/:id/mark-leave',
+  requireRole('PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'),
+  ctrl.markLeave
+);
+
 // MD final decision  body: { action: 'approve'|'reject'|'hold', notes, approvalMode?, mdUserId? }
 // MD does it digitally; PURCHASE_HOD/GM_PURCHASE can record physical/call approval on MD's behalf
 router.patch('/:id/md-action',

@@ -166,4 +166,33 @@ const update = async (id, data) => {
   });
 };
 
-module.exports = { getAll, getById, create, update, uploadDraftPO, sign, mdAction };
+// Mark a signatory as "on leave" — skips their step and advances to next status
+const KEY_TO_STEP = {
+  gm:        { status: 'DRAFT',            nextStatus: 'GM_SIGNED' },
+  user:      { status: 'GM_SIGNED',        nextStatus: 'USER_SIGNED' },
+  cfo:       { status: 'USER_SIGNED',      nextStatus: 'CFO_SIGNED' },
+  president: { status: 'CFO_SIGNED',       nextStatus: 'PRESIDENT_SIGNED' },
+  dir:       { status: 'PRESIDENT_SIGNED', nextStatus: 'DIR_SIGNED' },
+};
+
+const markLeave = async (id, signatoryKey) => {
+  const nfa = await prisma.nFA.findUnique({ where: { id } });
+  if (!nfa) throw { status: 404, message: 'NFA not found' };
+
+  const step = KEY_TO_STEP[signatoryKey];
+  if (!step) throw { status: 400, message: 'Invalid signatory key' };
+  if (nfa.status !== step.status) {
+    throw { status: 400, message: `NFA is not at this signatory's step (current: ${nfa.status})` };
+  }
+
+  const leaves = nfa.signatoryLeaves ? JSON.parse(nfa.signatoryLeaves) : {};
+  leaves[signatoryKey] = true;
+
+  return prisma.nFA.update({
+    where: { id },
+    data: { status: step.nextStatus, signatoryLeaves: JSON.stringify(leaves) },
+    include: INCLUDE,
+  });
+};
+
+module.exports = { getAll, getById, create, update, uploadDraftPO, sign, mdAction, markLeave };

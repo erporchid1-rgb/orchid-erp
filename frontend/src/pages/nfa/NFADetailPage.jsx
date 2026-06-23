@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { nfaService } from '../../services'
 import { useAuth } from '../../context/AuthContext'
-import { ArrowLeft, Printer, PenLine, CheckCircle, XCircle, PauseCircle, FileCheck, Phone, FileSignature, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Printer, PenLine, CheckCircle, XCircle, PauseCircle, FileCheck, Phone, FileSignature, MessageSquare, Plane } from 'lucide-react'
 import { DEFAULT_SIGNATORIES } from './CreateNFAPage'
 import toast from 'react-hot-toast'
 import SignatureModal from '../../components/ui/SignatureModal'
@@ -288,14 +288,26 @@ const NFADetailPage = () => {
   const sigLabel = (key) => customSigs?.find(s => s.key === key)?.label ?? DEFAULT_SIG_LABELS[key]
   const sigShown = (key) => customSigs ? (customSigs.find(s => s.key === key)?.show !== false) : true
 
+  // Parse leave flags
+  const leaves = (() => { try { return nfa.signatoryLeaves ? JSON.parse(nfa.signatoryLeaves) : {} } catch { return {} } })()
+
+  // Which key is currently pending (for leave button)
+  const CURRENT_KEY_MAP = { DRAFT: 'gm', GM_SIGNED: 'user', USER_SIGNED: 'cfo', CFO_SIGNED: 'president', PRESIDENT_SIGNED: 'dir' }
+  const currentPendingKey = CURRENT_KEY_MAP[nfa.status] || null
+
+  const handleMarkLeave = (key) => {
+    if (!window.confirm(`Mark this signatory as "On Leave"? The document will skip to the next approver.`)) return
+    doAction(() => nfaService.markLeave(id, key), 'Signatory marked on leave — document advanced')
+  }
+
   // Steps for signing progress timeline
   const STEPS = [
-    sigShown('gm')        && { label: sigLabel('gm'),        who: nfa.gmSignedBy,        at: nfa.gmSignedAt,        sig: nfa.gmSignature },
-    sigShown('user')      && { label: sigLabel('user'),      who: nfa.userSignedBy,      at: nfa.userSignedAt,      sig: nfa.userSignature },
-    sigShown('cfo')       && { label: sigLabel('cfo'),       who: nfa.cfoSignedBy,       at: nfa.cfoSignedAt,       sig: nfa.cfoSignature },
-    sigShown('president') && { label: sigLabel('president'), who: nfa.presidentSignedBy, at: nfa.presidentSignedAt, sig: nfa.presidentSignature },
-    sigShown('dir')       && { label: sigLabel('dir'),       who: nfa.dirSignedBy,       at: nfa.dirSignedAt,       sig: nfa.dirSignature },
-    { label: 'MD Approval', who: nfa.mdApprovedBy, at: nfa.mdApprovedAt, sig: nfa.mdSignature },
+    sigShown('gm')        && { key: 'gm',        label: sigLabel('gm'),        who: nfa.gmSignedBy,        at: nfa.gmSignedAt,        sig: nfa.gmSignature,        onLeave: leaves.gm },
+    sigShown('user')      && { key: 'user',      label: sigLabel('user'),      who: nfa.userSignedBy,      at: nfa.userSignedAt,      sig: nfa.userSignature,      onLeave: leaves.user },
+    sigShown('cfo')       && { key: 'cfo',       label: sigLabel('cfo'),       who: nfa.cfoSignedBy,       at: nfa.cfoSignedAt,       sig: nfa.cfoSignature,       onLeave: leaves.cfo },
+    sigShown('president') && { key: 'president', label: sigLabel('president'), who: nfa.presidentSignedBy, at: nfa.presidentSignedAt, sig: nfa.presidentSignature, onLeave: leaves.president },
+    sigShown('dir')       && { key: 'dir',       label: sigLabel('dir'),       who: nfa.dirSignedBy,       at: nfa.dirSignedAt,       sig: nfa.dirSignature,       onLeave: leaves.dir },
+    { key: 'md', label: 'MD Approval', who: nfa.mdApprovedBy, at: nfa.mdApprovedAt, sig: nfa.mdSignature },
   ].filter(Boolean)
 
   // Print signature box — shows image if available, else blank line
@@ -407,7 +419,9 @@ const NFADetailPage = () => {
             <div className="flex items-start gap-0">
               {STEPS.map((step, i) => {
                 const done = !!step.who
+                const onLeave = !!step.onLeave
                 const isMdStep = i === STEPS.length - 1
+                const isPending = !done && !onLeave && currentPendingKey === step.key
                 const modeLabel = isMdStep && nfa.mdApprovalMode && nfa.mdApprovalMode !== 'DIGITAL'
                   ? APPROVAL_MODE_LABEL[nfa.mdApprovalMode]
                   : null
@@ -415,11 +429,14 @@ const NFADetailPage = () => {
                   <div key={i} className="flex items-center flex-1">
                     <div className="flex flex-col items-center">
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2
-                        ${done ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-gray-300 text-gray-400'}`}>
-                        {done ? '✓' : i + 1}
+                        ${done ? 'bg-green-500 border-green-500 text-white'
+                          : onLeave ? 'bg-amber-400 border-amber-400 text-white'
+                          : 'bg-white border-gray-300 text-gray-400'}`}>
+                        {done ? '✓' : onLeave ? <Plane size={12}/> : i + 1}
                       </div>
                       <div className="text-center mt-1" style={{ minWidth: '80px' }}>
-                        <p className={`text-xs font-medium ${done ? 'text-green-700' : 'text-gray-400'}`}>{step.label}</p>
+                        <p className={`text-xs font-medium ${done ? 'text-green-700' : onLeave ? 'text-amber-600' : 'text-gray-400'}`}>{step.label}</p>
+                        {onLeave && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">ON LEAVE</span>}
                         {step.who && <p className="text-xs text-gray-500">{step.who.name}</p>}
                         {step.at  && <p className="text-xs text-gray-400">{fmt(step.at)}</p>}
                         {modeLabel && <p className="text-xs text-amber-600 font-medium mt-0.5">{modeLabel}</p>}
@@ -434,10 +451,19 @@ const NFADetailPage = () => {
                             style={{ maxHeight: '32px', maxWidth: '72px', objectFit: 'contain' }}
                           />
                         )}
+                        {isPending && isPurchaseHOD && (
+                          <button
+                            onClick={() => handleMarkLeave(step.key)}
+                            disabled={actionLoading}
+                            className="mt-1 flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors"
+                          >
+                            <Plane size={10}/> On Leave
+                          </button>
+                        )}
                       </div>
                     </div>
                     {i < STEPS.length - 1 && (
-                      <div className={`flex-1 h-0.5 mx-1 mt-[-16px] ${done ? 'bg-green-400' : 'bg-gray-200'}`} />
+                      <div className={`flex-1 h-0.5 mx-1 mt-[-16px] ${done || onLeave ? 'bg-green-400' : 'bg-gray-200'}`} />
                     )}
                   </div>
                 )

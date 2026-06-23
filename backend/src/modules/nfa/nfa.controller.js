@@ -80,4 +80,16 @@ const update = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, create, update, uploadDraftPO, sign, mdAction };
+const markLeave = async (req, res, next) => {
+  try {
+    const { signatoryKey } = req.body;
+    if (!signatoryKey) return sendError(res, 'signatoryKey is required', 400);
+    const nfa = await service.markLeave(req.params.id, signatoryKey);
+    return sendSuccess(res, nfa, 'Signatory marked as on leave — step skipped');
+  } catch (err) {
+    if (err.status) return sendError(res, err.message, err.status);
+    next(err);
+  }
+};
+
+module.exports = { getAll, getById, create, update, uploadDraftPO, sign, mdAction, markLeave };

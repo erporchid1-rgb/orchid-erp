@@ -1,10 +1,11 @@
-import { Fragment, useState, useEffect } from 'react'
+import { Fragment, useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { comparativeService } from '../../services'
+import { comparativeService, materialsService } from '../../services'
 import { useAuth } from '../../context/AuthContext'
 import {
   ArrowLeft, BarChart2, CheckCircle, Printer,
   Star, ThumbsUp, MessageSquare, RefreshCw, User, Pencil,
+  Edit3, Save, X, Plus, Trash2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -99,9 +100,16 @@ const ComparativeDetailPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [cs, setCS]         = useState(null)
+  const [cs, setCS]           = useState(null)
   const [loading, setLoading] = useState(true)
   const [acting, setActing]   = useState(false)
+
+  // Inline edit state
+  const [editMode, setEditMode]   = useState(false)
+  const [editItems, setEditItems] = useState([])
+  const [editQuotes, setEditQuotes] = useState([])
+  const [materials, setMaterials] = useState([])
+  const [saving, setSaving]       = useState(false)
 
   const isPurchaseHOD = ['PURCHASE_HOD','GM_PURCHASE','ADMIN'].includes(user?.role)
   const isUserHOD     = ['USER_HOD','ADMIN'].includes(user?.role)
@@ -122,6 +130,82 @@ const ComparativeDetailPage = () => {
     finally { setActing(false) }
   }
 
+  const startEdit = async () => {
+    if (!materials.length) {
+      try {
+        const { data } = await materialsService.getAll({ limit: 500 })
+        setMaterials(data.data || [])
+      } catch {}
+    }
+    setEditItems((cs.items || []).map(it => ({
+      id: it.id, materialId: it.materialId,
+      materialName: it.material?.materialName || '',
+      specification: it.specification || '', unit: it.unit || '', qty: it.qty || 0,
+      supplier1Rate: it.supplier1Rate ?? '', supplier2Rate: it.supplier2Rate ?? '',
+      supplier3Rate: it.supplier3Rate ?? '', supplier4Rate: it.supplier4Rate ?? '',
+    })))
+    setEditQuotes((cs.quotations || []).map(q => ({
+      id: q.id, supplierId: q.supplierId,
+      quotationRef: q.quotationRef || '', quotationDate: q.quotationDate ? q.quotationDate.slice(0,10) : '',
+      gstPercent: q.gstPercent ?? 18, warranty: q.warranty || '',
+      deliveryDays: q.deliveryDays || '', remarks: q.remarks || '',
+    })))
+    setEditMode(true)
+  }
+
+  const cancelEdit = () => { setEditMode(false) }
+
+  const updateItem = useCallback((idx, field, val) => {
+    setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: val } : it))
+  }, [])
+
+  const updateQuote = useCallback((idx, field, val) => {
+    setEditQuotes(prev => prev.map((q, i) => i === idx ? { ...q, [field]: val } : q))
+  }, [])
+
+  const deleteItem = (idx) => setEditItems(prev => prev.filter((_, i) => i !== idx))
+
+  const addItem = () => {
+    setEditItems(prev => [...prev, {
+      id: null, materialId: '', materialName: '',
+      specification: '', unit: 'Nos', qty: 1,
+      supplier1Rate: '', supplier2Rate: '', supplier3Rate: '', supplier4Rate: '',
+    }])
+  }
+
+  const saveInlineEdit = async () => {
+    if (editItems.some(it => !it.materialId && !it.materialName)) {
+      toast.error('All rows need a material selected'); return
+    }
+    setSaving(true)
+    try {
+      await comparativeService.update(id, {
+        quotations: editQuotes.map(q => ({
+          supplierId: q.supplierId, quotationRef: q.quotationRef,
+          quotationDate: q.quotationDate || null,
+          gstPercent: parseFloat(q.gstPercent) || 18,
+          warranty: q.warranty, deliveryDays: q.deliveryDays ? parseInt(q.deliveryDays) : null,
+          remarks: q.remarks,
+        })),
+        items: editItems.map(it => ({
+          materialId: it.materialId || null,
+          materialName: it.materialName,
+          specification: it.specification, unit: it.unit,
+          qty: parseFloat(it.qty) || 0,
+          supplier1Rate: it.supplier1Rate !== '' ? parseFloat(it.supplier1Rate) : null,
+          supplier2Rate: it.supplier2Rate !== '' ? parseFloat(it.supplier2Rate) : null,
+          supplier3Rate: it.supplier3Rate !== '' ? parseFloat(it.supplier3Rate) : null,
+          supplier4Rate: it.supplier4Rate !== '' ? parseFloat(it.supplier4Rate) : null,
+        })),
+      })
+      toast.success('CS updated successfully')
+      setEditMode(false)
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save')
+    } finally { setSaving(false) }
+  }
+
   if (loading) return (
     <div className="flex justify-center py-16">
       <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin"/>
@@ -139,6 +223,10 @@ const ComparativeDetailPage = () => {
   const getRate    = (item, qi) => item[RATE_KEYS[qi]] ?? null
   const getItemAmt = (item, qi) => { const r=getRate(item,qi); return r!=null ? item.qty*r : null }
   const getColSub  = (qi)       => items.reduce((s,item)=>s+(getItemAmt(item,qi)??0),0)
+  const getEditColSub = (qi) => editItems.reduce((s,it) => {
+    const r = it[RATE_KEYS[qi]] !== '' ? parseFloat(it[RATE_KEYS[qi]]) : null
+    return s + (r != null ? parseFloat(it.qty||0) * r : 0)
+  }, 0)
 
   /* supplier detail row values */
   const detailRows = [
@@ -183,9 +271,26 @@ const ComparativeDetailPage = () => {
             <span className={STATUS_BADGE[cs.status]||'badge badge-gray'}>{STATUS_LABEL[cs.status]||cs.status}</span>
           </p>
         </div>
-        <button onClick={()=>window.print()} className="btn-secondary flex items-center gap-2 no-print">
-          <Printer size={14}/> Print CS
-        </button>
+        <div className="flex gap-2">
+          {isPurchaseHOD && cs.status === 'DRAFT' && !editMode && (
+            <button onClick={startEdit} className="btn-secondary flex items-center gap-2 no-print border-amber-300 text-amber-700 hover:bg-amber-50">
+              <Edit3 size={14}/> Inline Edit
+            </button>
+          )}
+          {editMode && (
+            <>
+              <button onClick={cancelEdit} className="btn-secondary flex items-center gap-2 no-print">
+                <X size={14}/> Cancel
+              </button>
+              <button onClick={saveInlineEdit} disabled={saving} className="btn-primary flex items-center gap-2 no-print">
+                <Save size={14}/> {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </>
+          )}
+          <button onClick={()=>window.print()} className="btn-secondary flex items-center gap-2 no-print">
+            <Printer size={14}/> Print CS
+          </button>
+        </div>
       </div>
 
       {/* ── Action panels ── */}
@@ -331,25 +436,80 @@ const ComparativeDetailPage = () => {
             </thead>
             <tbody>
               {/* Item rows */}
-              {items.map((item, i) => (
-                <tr key={item.id}>
-                  <td style={td()}>{i+1}</td>
-                  <td style={td({textAlign:'left', fontWeight:'600'})}>{item.material?.materialName}</td>
-                  <td style={td({textAlign:'left', fontSize:'9.5px'})}>{item.specification||''}</td>
-                  <td style={td()}>{item.unit}</td>
-                  <td style={td()}>{item.qty}</td>
-                  {quotations.map((q, qi) => {
-                    const r = getRate(item, qi)
-                    const a = getItemAmt(item, qi)
+              {(editMode ? editItems : items).map((item, i) => (
+                <tr key={item.id || i} style={editMode ? {backgroundColor:'#fffbf0'} : {}}>
+                  <td style={td()}>
+                    {editMode
+                      ? <div className="flex items-center gap-1">
+                          <span style={{fontSize:'9px'}}>{i+1}</span>
+                          <button type="button" onClick={()=>deleteItem(i)} title="Delete row"
+                            style={{color:'#ef4444',cursor:'pointer',lineHeight:1,border:'none',background:'none',padding:'1px'}}>
+                            <span style={{fontSize:'12px'}}>×</span>
+                          </button>
+                        </div>
+                      : i+1}
+                  </td>
+                  <td style={td({textAlign:'left', fontWeight:'600'})}>
+                    {editMode
+                      ? <select value={item.materialId}
+                          onChange={e => {
+                            const mat = materials.find(m => m.id === e.target.value)
+                            updateItem(i, 'materialId', e.target.value)
+                            if (mat) updateItem(i, 'materialName', mat.materialName)
+                          }}
+                          style={{width:'100%',fontSize:'9px',border:'1px solid #d1d5db',borderRadius:'3px',padding:'1px 3px'}}>
+                          <option value="">— select —</option>
+                          {materials.map(m => <option key={m.id} value={m.id}>{m.materialName}</option>)}
+                        </select>
+                      : item.material?.materialName}
+                  </td>
+                  <td style={td({textAlign:'left', fontSize:'9.5px'})}>
+                    {editMode
+                      ? <input value={item.specification} onChange={e=>updateItem(i,'specification',e.target.value)}
+                          style={{width:'100%',fontSize:'9px',border:'1px solid #d1d5db',borderRadius:'3px',padding:'1px 3px'}}/>
+                      : item.specification||''}
+                  </td>
+                  <td style={td()}>
+                    {editMode
+                      ? <input value={item.unit} onChange={e=>updateItem(i,'unit',e.target.value)}
+                          style={{width:'38px',fontSize:'9px',border:'1px solid #d1d5db',borderRadius:'3px',padding:'1px 2px',textAlign:'center'}}/>
+                      : item.unit}
+                  </td>
+                  <td style={td()}>
+                    {editMode
+                      ? <input type="number" value={item.qty} onChange={e=>updateItem(i,'qty',e.target.value)}
+                          style={{width:'44px',fontSize:'9px',border:'1px solid #d1d5db',borderRadius:'3px',padding:'1px 2px',textAlign:'center'}}/>
+                      : item.qty}
+                  </td>
+                  {(editMode ? editQuotes : quotations).map((q, qi) => {
+                    const rKey = `supplier${qi+1}Rate`
+                    const r = editMode ? (item[rKey] !== '' ? parseFloat(item[rKey]) : null) : getRate(item, qi)
+                    const a = r != null ? (editMode ? parseFloat(item.qty||0) * r : getItemAmt(item, qi)) : null
                     return (
-                      <Fragment key={q.id}>
-                        <td style={td({textAlign:'right'})}>{r!=null ? fmtAmt(r) : ''}</td>
+                      <Fragment key={q.id || qi}>
+                        <td style={td({textAlign:'right', padding: editMode ? '1px 3px' : undefined})}>
+                          {editMode
+                            ? <input type="number" value={item[rKey]} onChange={e=>updateItem(i, rKey, e.target.value)}
+                                style={{width:'58px',fontSize:'9px',border:'1px solid #d1d5db',borderRadius:'3px',padding:'1px 3px',textAlign:'right'}}/>
+                            : r!=null ? fmtAmt(r) : ''}
+                        </td>
                         <td style={td({textAlign:'right'})}>{a!=null ? fmtAmt(a) : ''}</td>
                       </Fragment>
                     )
                   })}
                 </tr>
               ))}
+              {/* Add row button in edit mode */}
+              {editMode && (
+                <tr>
+                  <td colSpan={5 + quotations.length * 2} style={{padding:'4px 8px', textAlign:'left'}}>
+                    <button type="button" onClick={addItem}
+                      style={{fontSize:'10px',color:'#2563eb',border:'1px dashed #93c5fd',borderRadius:'4px',padding:'2px 10px',cursor:'pointer',background:'#eff6ff',display:'flex',alignItems:'center',gap:'4px'}}>
+                      <span style={{fontSize:'14px',lineHeight:1}}>+</span> Add Row
+                    </button>
+                  </td>
+                </tr>
+              )}
 
               {/* Blank padding rows */}
               {Array.from({length: Math.max(0, 3-items.length)}).map((_,i) => (
@@ -367,10 +527,10 @@ const ComparativeDetailPage = () => {
               {/* ── Total / GST / Grand Total rows ── */}
               <tr style={{backgroundColor:'#f0f0f0'}}>
                 <td style={td({textAlign:'right', fontWeight:'700', fontSize:'10px'})} colSpan={5}>Total</td>
-                {quotations.map((q, qi) => {
-                  const sub = getColSub(qi)
+                {(editMode ? editQuotes : quotations).map((q, qi) => {
+                  const sub = editMode ? getEditColSub(qi) : getColSub(qi)
                   return (
-                    <Fragment key={q.id}>
+                    <Fragment key={q.id || qi}>
                       <td style={td()}></td>
                       <td style={td({textAlign:'right', fontWeight:'700'})}>
                         {sub > 0 ? fmtAmt(sub) : (q.totalAmount ? fmtAmt(q.totalAmount) : '')}
@@ -381,20 +541,20 @@ const ComparativeDetailPage = () => {
               </tr>
               <tr>
                 <td style={td({textAlign:'right'})} colSpan={5}>Cartage</td>
-                {quotations.map(q => (
-                  <Fragment key={q.id}><td style={td()}></td><td style={td()}>FOR</td></Fragment>
+                {(editMode ? editQuotes : quotations).map((q, qi) => (
+                  <Fragment key={q.id || qi}><td style={td()}></td><td style={td()}>FOR</td></Fragment>
                 ))}
               </tr>
               <tr>
                 <td style={td({textAlign:'right'})} colSpan={5}>
-                  GST {quotations[0]?.gstPercent ? `${quotations[0].gstPercent}%` : '18%'}
+                  GST {(editMode ? editQuotes[0]?.gstPercent : quotations[0]?.gstPercent) || '18'}%
                 </td>
-                {quotations.map((q, qi) => {
-                  const sub = getColSub(qi)
+                {(editMode ? editQuotes : quotations).map((q, qi) => {
+                  const sub = editMode ? getEditColSub(qi) : getColSub(qi)
                   const pct = parseFloat(q.gstPercent) || 18
                   const gst = sub > 0 ? sub * pct / 100 : null
                   return (
-                    <Fragment key={q.id}>
+                    <Fragment key={q.id || qi}>
                       <td style={td()}></td>
                       <td style={td({textAlign:'right'})}>{gst ? fmtAmt(gst) : ''}</td>
                     </Fragment>
@@ -403,12 +563,12 @@ const ComparativeDetailPage = () => {
               </tr>
               <tr style={{backgroundColor:'#f0fdf4'}}>
                 <td style={td({textAlign:'right', fontWeight:'700'})} colSpan={5}>Total Amount</td>
-                {quotations.map((q, qi) => {
-                  const sub = getColSub(qi)
+                {(editMode ? editQuotes : quotations).map((q, qi) => {
+                  const sub = editMode ? getEditColSub(qi) : getColSub(qi)
                   const pct = parseFloat(q.gstPercent) || 18
                   const grand = sub > 0 ? sub + sub*pct/100 : (q.totalAmount || null)
                   return (
-                    <Fragment key={q.id}>
+                    <Fragment key={q.id || qi}>
                       <td style={td()}></td>
                       <td style={td({textAlign:'right', fontWeight:'700'})}>{grand ? fmtAmt(grand) : ''}</td>
                     </Fragment>
@@ -417,22 +577,33 @@ const ComparativeDetailPage = () => {
               </tr>
 
               {/* ── Supplier detail rows 8–18 ── */}
-              {detailRows.map(({ num, label, fn }, ri) => (
-                <tr key={num} style={{backgroundColor: ri%2===0 ? '#fafafa' : '#fff'}}>
-                  <td style={td({textAlign:'left', fontWeight:'600'})} colSpan={5}>
-                    {num}.&nbsp;&nbsp;{label}
-                  </td>
-                  {quotations.map((q, qi) => (
-                    <td key={q.id} colSpan={2} style={td({
-                      textAlign: num===18 ? 'center' : 'left',
-                      fontWeight: num===18 ? '700' : '400',
-                      fontSize: '9.5px',
-                    })}>
-                      {fn(q)}
+              {detailRows.map(({ num, label, fn }, ri) => {
+                const editFieldMap = { 11:'gstPercent', 13:'warranty', 14:'remarks', 16:'deliveryDays' }
+                const editField = editFieldMap[num]
+                return (
+                  <tr key={num} style={{backgroundColor: editMode ? '#fffbf0' : ri%2===0 ? '#fafafa' : '#fff'}}>
+                    <td style={td({textAlign:'left', fontWeight:'600'})} colSpan={5}>
+                      {num}.&nbsp;&nbsp;{label}
                     </td>
-                  ))}
-                </tr>
-              ))}
+                    {(editMode ? editQuotes : quotations).map((q, qi) => (
+                      <td key={q.id || qi} colSpan={2} style={td({
+                        textAlign: num===18 ? 'center' : 'left',
+                        fontWeight: num===18 ? '700' : '400',
+                        fontSize: '9.5px',
+                        padding: editMode && editField ? '2px 4px' : undefined,
+                      })}>
+                        {editMode && editField
+                          ? <input type={num===11||num===16 ? 'number' : 'text'}
+                              value={q[editField]}
+                              onChange={e => updateQuote(qi, editField, e.target.value)}
+                              style={{width:'100%',fontSize:'9px',border:'1px solid #d1d5db',borderRadius:'3px',padding:'1px 4px'}}
+                              placeholder={label}/>
+                          : editMode ? fn(q) : fn(q)}
+                      </td>
+                    ))}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
 

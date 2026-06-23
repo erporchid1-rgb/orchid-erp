@@ -391,6 +391,7 @@ model NFA {
   quotationDate      DateTime?
   comparativeDate    DateTime?
   signatories        String?   // JSON: [{key,label,show}] for customizable signing authority labels
+  signatoryLeaves    String?   // JSON: {gm:false,user:true,...} marks who was on leave (skipped)
 
   status             String    @default("DRAFT")
   createdById        String
