@@ -2,10 +2,17 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { nfaService } from '../../services'
 import { useAuth } from '../../context/AuthContext'
-import { ArrowLeft, Printer, PenLine, CheckCircle, XCircle, PauseCircle, FileCheck, Phone, FileSignature, MessageSquare, Plane } from 'lucide-react'
+import { ArrowLeft, Printer, PenLine, CheckCircle, XCircle, PauseCircle, FileCheck, Phone, FileSignature, MessageSquare, Plane, Save } from 'lucide-react'
 import { DEFAULT_SIGNATORIES } from './CreateNFAPage'
 import toast from 'react-hot-toast'
 import SignatureModal from '../../components/ui/SignatureModal'
+import { suppliersService } from '../../services'
+
+/* Inline editable cell for NFA sheet mode */
+const XCell = ({ value, onChange, type = 'text', style = {}, placeholder = '', rows }) =>
+  rows
+    ? <textarea value={value ?? ''} onChange={e => onChange(e.target.value)} className="xl-input" rows={rows} placeholder={placeholder} style={style} />
+    : <input type={type} value={value ?? ''} onChange={e => onChange(e.target.value)} className="xl-input" placeholder={placeholder} style={style} />
 
 const APPROVAL_MODE_LABEL = {
   DIGITAL:    'Digital (MD signed on system)',
@@ -166,6 +173,12 @@ const NFADetailPage = () => {
   const [nfa, setNFA] = useState(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  // Inline-edit state (sheet mode)
+  const [editNFA, setEditNFA] = useState({})
+  const [isDirty, setIsDirty] = useState(false)
+  const [suppliers, setSuppliers] = useState([])
 
   // Signature modal state
   const [sigModal, setSigModal] = useState({ open: false, title: '', onConfirm: null })
@@ -199,6 +212,61 @@ const NFADetailPage = () => {
   }
 
   useEffect(() => { load() }, [id])
+
+  // Init edit state when NFA loads in DRAFT
+  useEffect(() => {
+    if (!nfa) return
+    if (!['PURCHASE_HOD','GM_PURCHASE','ADMIN'].includes(user?.role) || nfa.status !== 'DRAFT') return
+    setEditNFA({
+      memoType:           nfa.memoType           || 'PO_MEMO',
+      make:               nfa.make               || '',
+      areaOfUse:          nfa.areaOfUse          || '',
+      selectedSupplierId: nfa.selectedSupplierId || '',
+      natureOfWork:       nfa.natureOfWork        || '',
+      productDescription: nfa.productDescription  || '',
+      itemDescription:    nfa.itemDescription     || '',
+      baseAmount:         nfa.baseAmount          ?? 0,
+      cartage:            nfa.cartage             || 'FOR',
+      gstPercent:         nfa.gstPercent          ?? 18,
+      gstAmount:          nfa.gstAmount           ?? 0,
+      totalAmount:        nfa.totalAmount         ?? 0,
+      quotationDate:      nfa.quotationDate   ? nfa.quotationDate.slice(0,10)   : '',
+      comparativeDate:    nfa.comparativeDate ? nfa.comparativeDate.slice(0,10) : '',
+      paymentTerms:       nfa.paymentTerms       || '',
+      modeOfPayment:      nfa.modeOfPayment       || '',
+      lastPurchased:      nfa.lastPurchased       || '',
+      notes:              nfa.notes              || '',
+    })
+    setIsDirty(false)
+    suppliersService.getAll({ limit: 200 }).then(r => setSuppliers(r.data.data || [])).catch(() => {})
+  }, [nfa])
+
+  const upd = (field, val) => {
+    setEditNFA(prev => {
+      const next = { ...prev, [field]: val }
+      // Auto-recalc GST and total when base or percent changes
+      if (field === 'baseAmount' || field === 'gstPercent') {
+        const base = parseFloat(field === 'baseAmount' ? val : next.baseAmount) || 0
+        const pct  = parseFloat(field === 'gstPercent'  ? val : next.gstPercent)  || 0
+        next.gstAmount   = parseFloat((base * pct / 100).toFixed(2))
+        next.totalAmount = parseFloat((base + base * pct / 100).toFixed(2))
+      }
+      return next
+    })
+    setIsDirty(true)
+  }
+
+  const saveNFA = async () => {
+    setSaving(true)
+    try {
+      await nfaService.update(id, editNFA)
+      toast.success('NFA saved!')
+      setIsDirty(false)
+      load()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save')
+    } finally { setSaving(false) }
+  }
 
   const canSign = () => {
     if (!signAction || !nfa) return false
@@ -259,6 +327,8 @@ const NFADetailPage = () => {
     </div>
   )
   if (!nfa) return <div className="text-center py-20 text-gray-500">NFA not found</div>
+
+  const isNFASheet = isPurchaseHOD && nfa.status === 'DRAFT'
 
   const projectSite = [
     nfa.indent?.project?.projectName,
@@ -336,7 +406,29 @@ const NFADetailPage = () => {
           #nfa-print-area, #nfa-print-area * { visibility: visible; }
           #nfa-print-area { position: fixed; left: 0; top: 0; width: 100%; padding: 16px; }
           .no-print { display: none !important; }
+          .xl-input { border: none !important; outline: none !important; background: transparent !important; padding: 0 !important; font-family: Arial, Helvetica, sans-serif !important; }
+          textarea.xl-input { resize: none !important; }
         }
+        .xl-input {
+          border: none;
+          background: transparent;
+          outline: none;
+          font-family: Arial, Helvetica, sans-serif;
+          font-size: 13px;
+          line-height: 1.5;
+          padding: 0 3px;
+          box-sizing: border-box;
+          width: 100%;
+        }
+        .xl-input:focus {
+          background: #e8f0fe;
+          outline: 2px solid #1a73e8;
+          outline-offset: -1px;
+          border-radius: 2px;
+        }
+        .xl-input:hover:not(:focus) { background: #f1f5f9; }
+        textarea.xl-input { resize: vertical; }
+        .xl-row:hover { background: rgba(66,133,244,0.04); cursor: cell; }
       `}</style>
 
       {/* Signature Modal */}
@@ -402,6 +494,16 @@ const NFADetailPage = () => {
                   <PauseCircle size={14} /> Hold
                 </button>
               </>
+            )}
+            {isNFASheet && isDirty && (
+              <button onClick={saveNFA} disabled={saving} className="btn-primary flex items-center gap-2">
+                <Save size={14}/> {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+            )}
+            {isNFASheet && (
+              <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+                ✏️ Click any field to edit
+              </span>
             )}
             <button
               onClick={() => window.print()}
@@ -499,7 +601,7 @@ const NFADetailPage = () => {
 
       {/* ── Printable NFA Memo ── */}
       <div id="nfa-print-area">
-        {nfa.status === 'DRAFT' && (
+        {nfa.status === 'DRAFT' && !isNFASheet && (
           <div className="no-print flex justify-end p-2 bg-amber-50 border-b border-amber-200">
             <Link to={`/nfa/${nfa.id}/edit`}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors">
@@ -545,7 +647,7 @@ const NFADetailPage = () => {
           </div>
 
           {/* Project/Site + Make + Area of Use */}
-          <div style={{ borderBottom: '1px solid #ccc', display: 'flex' }}>
+          <div style={{ borderBottom: '1px solid #ccc', display: 'flex' }} className={isNFASheet ? 'xl-row' : ''}>
             <div style={{ flex: 3, borderRight: '1px solid #ccc', padding: '5px 16px', display: 'flex' }}>
               <div style={{ fontWeight: '600', flexShrink: 0, width: '150px' }}>Project / Site Name:</div>
               <div>{projectSite || '—'}</div>
@@ -553,88 +655,136 @@ const NFADetailPage = () => {
             <div style={{ flex: 2, padding: '5px 16px' }}>
               <div style={{ display: 'flex', marginBottom: '2px' }}>
                 <div style={{ fontWeight: '600', flexShrink: 0, width: '60px' }}>Make:</div>
-                <div>{nfa.make || '—'}</div>
+                {isNFASheet
+                  ? <XCell value={editNFA.make} onChange={v => upd('make', v)} placeholder="Make / Brand" style={{flex:1}}/>
+                  : <div>{nfa.make || '—'}</div>}
               </div>
-              {nfa.areaOfUse && (
-                <div style={{ display: 'flex' }}>
-                  <div style={{ fontWeight: '600', flexShrink: 0, width: '90px', fontSize: '11px' }}>Area of Use:</div>
-                  <div style={{ fontSize: '11px' }}>{nfa.areaOfUse}</div>
-                </div>
-              )}
+              <div style={{ display: 'flex' }}>
+                <div style={{ fontWeight: '600', flexShrink: 0, width: '90px', fontSize: '11px' }}>Area of Use:</div>
+                {isNFASheet
+                  ? <XCell value={editNFA.areaOfUse} onChange={v => upd('areaOfUse', v)} placeholder="Area of use" style={{flex:1, fontSize:'11px'}}/>
+                  : <div style={{ fontSize: '11px' }}>{nfa.areaOfUse || '—'}</div>}
+              </div>
             </div>
           </div>
 
           {/* Supplier */}
-          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px', display: 'flex' }}>
+          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px', display: 'flex' }} className={isNFASheet ? 'xl-row' : ''}>
             <div style={{ width: '220px', fontWeight: '600', flexShrink: 0 }}>Name of Dealer / Supplier:</div>
-            <div>M/s {nfa.selectedSupplier?.supplierName || '—'}</div>
+            {isNFASheet
+              ? <select value={editNFA.selectedSupplierId} onChange={e => upd('selectedSupplierId', e.target.value)} className="xl-input" style={{cursor:'pointer'}}>
+                  <option value="">— select supplier —</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.supplierName}</option>)}
+                </select>
+              : <div>M/s {nfa.selectedSupplier?.supplierName || '—'}</div>}
           </div>
 
           {/* Nature of Work */}
-          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }}>
+          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }} className={isNFASheet ? 'xl-row' : ''}>
             <span style={{ fontWeight: '600' }}>Nature of Work: </span>
-            <span>{nfa.natureOfWork || '—'}</span>
+            {isNFASheet
+              ? <XCell value={editNFA.natureOfWork} onChange={v => upd('natureOfWork', v)} placeholder="Nature of work…" style={{width:'75%'}}/>
+              : <span>{nfa.natureOfWork || '—'}</span>}
           </div>
 
           {/* Product Description */}
-          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }}>
+          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }} className={isNFASheet ? 'xl-row' : ''}>
             <span style={{ fontWeight: '600' }}>Product Description / Make: </span>
-            <span>{nfa.productDescription || '—'}</span>
+            {isNFASheet
+              ? <XCell value={editNFA.productDescription} onChange={v => upd('productDescription', v)} placeholder="Product description…" style={{width:'70%'}}/>
+              : <span>{nfa.productDescription || '—'}</span>}
           </div>
 
           {/* Item Description */}
           <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }}>
-            <span style={{ fontWeight: '600' }}>Item Description: </span>
-            <span style={{ whiteSpace: 'pre-line' }}>{nfa.itemDescription || '—'}</span>
+            <div style={{ fontWeight: '600', marginBottom: isNFASheet ? '4px' : 0 }}>Item Description:</div>
+            {isNFASheet
+              ? <XCell value={editNFA.itemDescription} onChange={v => upd('itemDescription', v)} placeholder="Describe items…" rows={4} style={{width:'100%', marginTop:'2px'}}/>
+              : <span style={{ whiteSpace: 'pre-line' }}>{nfa.itemDescription || '—'}</span>}
           </div>
 
           {/* Amount Table */}
-          {[
-            { label: 'Amount Payable',                   value: `Rs. ${fmtAmt(nfa.baseAmount)}` },
-            { label: 'Total',                            value: `Rs. ${fmtAmt(nfa.baseAmount)}` },
-            { label: 'Cartage',                          value: nfa.cartage || 'FOR' },
-            { label: `GST @ ${nfa.gstPercent ?? 0}%`,   value: `Rs. ${fmtAmt(nfa.gstAmount)}` },
-            { label: 'Grand Total',                      value: `Rs. ${fmtAmt(nfa.totalAmount)}`, bold: true },
-          ].map(({ label, value, bold }) => (
-            <div key={label} style={{ display: 'flex', borderBottom: '1px solid #ccc' }}>
-              <div style={{ flex: 1, padding: '4px 16px', fontWeight: bold ? 'bold' : 'normal', borderRight: '1px solid #ccc' }}>
-                {label}
-              </div>
-              <div style={{ width: '180px', padding: '4px 16px', textAlign: 'right', fontWeight: bold ? 'bold' : 'normal', flexShrink: 0 }}>
-                {value}
-              </div>
-            </div>
-          ))}
+          {isNFASheet ? (
+            <>
+              {[
+                { label: 'Amount Payable', field: 'baseAmount', prefix: 'Rs. ' },
+                { label: 'Total',          field: null,          prefix: 'Rs. ', readVal: `Rs. ${fmtAmt(editNFA.baseAmount)}` },
+                { label: 'Cartage',        field: 'cartage',     prefix: '' },
+                { label: `GST %`,          field: 'gstPercent',  prefix: '', suffix: '%', type:'number' },
+                { label: 'GST Amount',     field: null,          prefix: 'Rs. ', readVal: `Rs. ${fmtAmt(editNFA.gstAmount)}` },
+                { label: 'Grand Total',    field: null,          prefix: 'Rs. ', readVal: `Rs. ${fmtAmt(editNFA.totalAmount)}`, bold: true },
+              ].map(({ label, field, prefix, suffix, type, readVal, bold }) => (
+                <div key={label} style={{ display: 'flex', borderBottom: '1px solid #ccc' }} className="xl-row">
+                  <div style={{ flex: 1, padding: '4px 16px', fontWeight: bold ? 'bold' : 'normal', borderRight: '1px solid #ccc' }}>{label}</div>
+                  <div style={{ width: '200px', padding: '4px 8px 4px 16px', textAlign: 'right', fontWeight: bold ? 'bold' : 'normal', flexShrink: 0, display:'flex', alignItems:'center', justifyContent:'flex-end', gap:'2px' }}>
+                    {field
+                      ? <>{prefix}<XCell type={type||'text'} value={editNFA[field]} onChange={v => upd(field, v)} style={{textAlign:'right', width:type==='number'?'70px':'120px'}}/>{suffix||''}</>
+                      : readVal}
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              {[
+                { label: 'Amount Payable',                   value: `Rs. ${fmtAmt(nfa.baseAmount)}` },
+                { label: 'Total',                            value: `Rs. ${fmtAmt(nfa.baseAmount)}` },
+                { label: 'Cartage',                          value: nfa.cartage || 'FOR' },
+                { label: `GST @ ${nfa.gstPercent ?? 0}%`,   value: `Rs. ${fmtAmt(nfa.gstAmount)}` },
+                { label: 'Grand Total',                      value: `Rs. ${fmtAmt(nfa.totalAmount)}`, bold: true },
+              ].map(({ label, value, bold }) => (
+                <div key={label} style={{ display: 'flex', borderBottom: '1px solid #ccc' }}>
+                  <div style={{ flex: 1, padding: '4px 16px', fontWeight: bold ? 'bold' : 'normal', borderRight: '1px solid #ccc' }}>{label}</div>
+                  <div style={{ width: '180px', padding: '4px 16px', textAlign: 'right', fontWeight: bold ? 'bold' : 'normal', flexShrink: 0 }}>{value}</div>
+                </div>
+              ))}
+            </>
+          )}
 
           {/* Attachment */}
-          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }}>
+          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }} className={isNFASheet ? 'xl-row' : ''}>
             <span style={{ fontWeight: '600' }}>Attachment: </span>
-            <span>{attachment || '—'}</span>
+            {isNFASheet ? (
+              <span style={{ display:'inline-flex', gap:'12px', alignItems:'center' }}>
+                <span style={{fontSize:'12px', color:'#555'}}>Quotation Date:</span>
+                <XCell type="date" value={editNFA.quotationDate} onChange={v => upd('quotationDate', v)} style={{width:'140px', fontSize:'12px'}}/>
+                <span style={{fontSize:'12px', color:'#555', marginLeft:'8px'}}>Comparative Date:</span>
+                <XCell type="date" value={editNFA.comparativeDate} onChange={v => upd('comparativeDate', v)} style={{width:'140px', fontSize:'12px'}}/>
+              </span>
+            ) : <span>{attachment || '—'}</span>}
           </div>
 
           {/* Payment Terms */}
-          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }}>
+          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }} className={isNFASheet ? 'xl-row' : ''}>
             <span style={{ fontWeight: '600' }}>Payment terms: </span>
-            <span>{nfa.paymentTerms || '—'}</span>
+            {isNFASheet
+              ? <XCell value={editNFA.paymentTerms} onChange={v => upd('paymentTerms', v)} placeholder="e.g. 100% on delivery" style={{width:'60%'}}/>
+              : <span>{nfa.paymentTerms || '—'}</span>}
           </div>
 
           {/* Mode of Payment */}
-          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }}>
+          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }} className={isNFASheet ? 'xl-row' : ''}>
             <span style={{ fontWeight: '600' }}>Mode of Payment Preferred: </span>
-            <span>{nfa.modeOfPayment || '—'}</span>
+            {isNFASheet
+              ? <XCell value={editNFA.modeOfPayment} onChange={v => upd('modeOfPayment', v)} placeholder="NEFT / Cheque / Cash" style={{width:'55%'}}/>
+              : <span>{nfa.modeOfPayment || '—'}</span>}
           </div>
 
           {/* Last Purchased */}
-          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }}>
+          <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }} className={isNFASheet ? 'xl-row' : ''}>
             <span style={{ fontWeight: '600' }}>Last Purchased: </span>
-            <span>{nfa.lastPurchased || '—'}</span>
+            {isNFASheet
+              ? <XCell value={editNFA.lastPurchased} onChange={v => upd('lastPurchased', v)} placeholder="Last purchase details…" style={{width:'65%'}}/>
+              : <span>{nfa.lastPurchased || '—'}</span>}
           </div>
 
           {/* Note */}
-          {nfa.notes && (
+          {(isNFASheet || nfa.notes) && (
             <div style={{ borderBottom: '1px solid #ccc', padding: '5px 16px' }}>
               <span style={{ fontWeight: '600' }}>Note: </span>
-              <span>{nfa.notes}</span>
+              {isNFASheet
+                ? <XCell value={editNFA.notes} onChange={v => upd('notes', v)} placeholder="Additional notes…" style={{width:'75%'}}/>
+                : <span>{nfa.notes}</span>}
             </div>
           )}
 
