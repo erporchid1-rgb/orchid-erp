@@ -6,7 +6,7 @@ import { FileCheck, ArrowLeft, CheckCircle, ChevronRight, RefreshCw, UserCheck, 
 import toast from 'react-hot-toast'
 
 export const DEFAULT_SIGNATORIES = [
-  { key: 'gm',        label: 'GM — Purchase',       show: true },
+  { key: 'gm',        label: 'HOD — Purchase',      show: true },
   { key: 'user',      label: 'User Department',      show: true },
   { key: 'cfo',       label: 'CFO',                  show: true },
   { key: 'president', label: 'President — Projects', show: true },

@@ -185,10 +185,11 @@ const NFADetailPage = () => {
 
   const isMD          = ['MD', 'ADMIN'].includes(user?.role)
   const isPurchaseHOD = ['PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'].includes(user?.role)
-  const isHODOnly     = user?.role === 'PURCHASE_HOD'  // can submit but not sign
+  const isHODOnly     = user?.role === 'GM_PURCHASE'  // Sumit: creates/edits, submits but doesn't sign
 
+  // PURCHASE_HOD (Gagan Bhandari) signs as first signatory; GM_PURCHASE (Sumit) only creates/edits
   const signAction = {
-    GM_PURCHASE:        'gm_sign',
+    PURCHASE_HOD:       'gm_sign',
     USER_HOD:           'user_sign',
     CFO:                'cfo_sign',
     PRESIDENT_PROJECTS: 'president_sign',
@@ -196,7 +197,7 @@ const NFADetailPage = () => {
   }[user?.role]
 
   const signLabel = {
-    gm_sign:        'GM — Purchase',
+    gm_sign:        'HOD — Purchase',
     user_sign:      'User Department',
     cfo_sign:       'CFO',
     president_sign: 'President — Projects',
@@ -352,7 +353,7 @@ const NFADetailPage = () => {
   const memoTypeLabel = MEMO_TYPE_LABEL[nfa.memoType] || 'Work / Purchase Order Memo'
 
   // Parse custom signatories (or use defaults)
-  const DEFAULT_SIG_LABELS = { gm: 'GM — Purchase', user: 'User Department', cfo: 'CFO', president: 'President — Projects', dir: 'Executive Director' }
+  const DEFAULT_SIG_LABELS = { gm: 'HOD — Purchase', user: 'User Department', cfo: 'CFO', president: 'President — Projects', dir: 'Executive Director' }
   const customSigs = (() => {
     try { return nfa.signatories ? JSON.parse(nfa.signatories) : null } catch { return null }
   })()
