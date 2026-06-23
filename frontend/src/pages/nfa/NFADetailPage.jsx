@@ -216,7 +216,7 @@ const NFADetailPage = () => {
   // Init edit state when NFA loads in DRAFT
   useEffect(() => {
     if (!nfa) return
-    if (!['PURCHASE_HOD','GM_PURCHASE','ADMIN'].includes(user?.role) || nfa.status !== 'DRAFT') return
+    if (nfa.status !== 'DRAFT') return
     setEditNFA({
       memoType:           nfa.memoType           || 'PO_MEMO',
       make:               nfa.make               || '',
@@ -328,7 +328,7 @@ const NFADetailPage = () => {
   )
   if (!nfa) return <div className="text-center py-20 text-gray-500">NFA not found</div>
 
-  const isNFASheet = isPurchaseHOD && nfa.status === 'DRAFT'
+  const isNFASheet = nfa.status === 'DRAFT'
 
   const projectSite = [
     nfa.indent?.project?.projectName,
@@ -601,14 +601,6 @@ const NFADetailPage = () => {
 
       {/* ── Printable NFA Memo ── */}
       <div id="nfa-print-area">
-        {nfa.status === 'DRAFT' && !isNFASheet && (
-          <div className="no-print flex justify-end p-2 bg-amber-50 border-b border-amber-200">
-            <Link to={`/nfa/${nfa.id}/edit`}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors">
-              <PenLine size={13}/> Edit NFA
-            </Link>
-          </div>
-        )}
         <div style={{
           fontFamily: 'Arial, Helvetica, sans-serif',
           fontSize: '13px',
