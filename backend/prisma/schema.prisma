@@ -282,8 +282,9 @@ model ComparativeStatement {
   indentId    String
   createdById String
   poWithoutCS Boolean   @default(false)
-  notes       String?
-  status      String    @default("DRAFT")
+  notes           String?
+  detailRowsJson  String?   // JSON: [{label, values:[per supplier]}] for custom CS detail rows
+  status          String    @default("DRAFT")
 
   hodRecommendedById  String?
   hodRecommendedAt    DateTime?

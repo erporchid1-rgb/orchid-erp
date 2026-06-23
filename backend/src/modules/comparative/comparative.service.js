@@ -221,6 +221,7 @@ const update = async (id, data) => {
       data: {
         notes: csData.notes || null,
         poWithoutCS: csData.poWithoutCS || false,
+        detailRowsJson: csData.detailRowsJson || null,
         quotations: {
           create: quotations.map(q => ({
             supplierId:    q.supplierId,

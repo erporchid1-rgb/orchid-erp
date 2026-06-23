@@ -115,10 +115,11 @@ const ComparativeDetailPage = () => {
   const [saving, setSaving]   = useState(false)
 
   // Spreadsheet state
-  const [editItems, setEditItems]   = useState([])
-  const [editQuotes, setEditQuotes] = useState([])
-  const [materials, setMaterials]   = useState([])
-  const [isDirty, setIsDirty]       = useState(false)
+  const [editItems, setEditItems]       = useState([])
+  const [editQuotes, setEditQuotes]     = useState([])
+  const [editDetailRows, setDetailRows] = useState([])  // [{label, values:[per quote]}]
+  const [materials, setMaterials]       = useState([])
+  const [isDirty, setIsDirty]           = useState(false)
 
   const isPurchaseHOD = ['PURCHASE_HOD','GM_PURCHASE','ADMIN'].includes(user?.role)
   const isUserHOD     = ['USER_HOD','ADMIN'].includes(user?.role)
@@ -157,9 +158,47 @@ const ComparativeDetailPage = () => {
       deliveryDays: q.deliveryDays ?? '',
       remarks: q.remarks || '',
     })))
+    // Init detail rows from saved JSON or build from quotation fields
+    const qs = cs.quotations || []
+    if (cs.detailRowsJson) {
+      try { setDetailRows(JSON.parse(cs.detailRowsJson)) } catch { initDefaultDetailRows(qs) }
+    } else {
+      initDefaultDetailRows(qs)
+    }
     setIsDirty(false)
     materialsService.getAll({ limit: 500 }).then(r => setMaterials(r.data.data || [])).catch(()=>{})
   }, [cs])
+
+  const initDefaultDetailRows = (qs) => {
+    const fmtDate = (d) => { if (!d) return ''; const dt = new Date(d); return `${String(dt.getDate()).padStart(2,'0')}-${String(dt.getMonth()+1).padStart(2,'0')}-${dt.getFullYear()}` }
+    setDetailRows([
+      { label: 'Quotation Received',     values: qs.map(q => q.quotationRef || (q.quotationDate ? `Dated ${fmtDate(q.quotationDate)}` : 'Email')) },
+      { label: 'Company / Dealer',       values: qs.map(q => `M/s ${q.supplier?.supplierName||'—'}`) },
+      { label: 'Rates Validity',         values: qs.map(q => q.quotationDate ? `Quot. Dt. ${fmtDate(q.quotationDate)}` : '—') },
+      { label: 'GST',                    values: qs.map(q => q.gstPercent ? `${q.gstPercent}% Extra` : '18% Extra') },
+      { label: 'Make',                   values: qs.map(_ => '') },
+      { label: 'Warranty',               values: qs.map(q => q.warranty || '') },
+      { label: 'Payment Terms',          values: qs.map(q => q.remarks || '100% on Delivery') },
+      { label: 'Freight Charges',        values: qs.map(_ => 'FOR') },
+      { label: 'Delivery Time',          values: qs.map(q => q.deliveryDays ? `${q.deliveryDays} Days` : '') },
+      { label: 'Vendor Contact Details', values: qs.map(q => [q.supplier?.mobile, q.supplier?.email].filter(Boolean).join(' / ') || '') },
+      { label: 'Position of Vendors',    values: qs.map(_ => '') },
+    ])
+  }
+
+  const updDR = (ri, field, val) => {
+    setDetailRows(prev => prev.map((r, i) => i === ri
+      ? (field === 'label' ? { ...r, label: val } : { ...r, values: r.values.map((v, vi) => vi === field ? val : v) })
+      : r
+    ))
+    setIsDirty(true)
+  }
+  const delDR = (ri) => { setDetailRows(prev => prev.filter((_, i) => i !== ri)); setIsDirty(true) }
+  const addDR = () => {
+    const numQ = editQuotes.length || (cs?.quotations?.length || 0)
+    setDetailRows(prev => [...prev, { label: 'New Row', values: Array(numQ).fill('') }])
+    setIsDirty(true)
+  }
 
   const doAction = async (fn, msg) => {
     setActing(true)
@@ -186,6 +225,7 @@ const ComparativeDetailPage = () => {
     setSaving(true)
     try {
       await comparativeService.update(id, {
+        detailRowsJson: JSON.stringify(editDetailRows),
         quotations: editQuotes.map(q => ({
           supplierId: q.supplierId,
           quotationRef: q.quotationRef,
@@ -242,19 +282,28 @@ const ComparativeDetailPage = () => {
   const byAmt  = [...quotations].filter(q=>q.totalAmount!=null).sort((a,b)=>a.totalAmount-b.totalAmount)
   const getPos = (q) => { const i=byAmt.findIndex(s=>s.id===q.id); return i>=0?`L${i+1}`:'—' }
 
-  const detailRows = [
-    { num:8,  label:'Quotation Received',     field: 'quotationRef',  fn: (q) => q.quotationRef || (q.quotationDate ? `Dated ${fmtD(q.quotationDate)}` : 'Email') },
-    { num:9,  label:'Company / Dealer',       field: null,            fn: (q) => `M/s ${q.supplier?.supplierName||q.supplierName||'—'}` },
-    { num:10, label:'Rates Validity',         field: null,            fn: (q) => q.quotationDate ? `Quot. Dt. ${fmtD(q.quotationDate)}` : '—' },
-    { num:11, label:'GST',                    field: 'gstPercent',    fn: (q) => q.gstPercent ? `${q.gstPercent}% Extra` : '18% Extra' },
-    { num:12, label:'Make',                   field: null,            fn: (_) => items.length ? (items[0].specification || '—') : '—' },
-    { num:13, label:'Warranty',               field: 'warranty',      fn: (q) => q.warranty || '—' },
-    { num:14, label:'Payment Terms',          field: 'remarks',       fn: (q) => q.remarks || '100% on Delivery' },
-    { num:15, label:'Freight Charges',        field: null,            fn: (_) => 'FOR' },
-    { num:16, label:'Delivery Time',          field: 'deliveryDays',  fn: (q) => q.deliveryDays ? `${q.deliveryDays} Days` : '—' },
-    { num:17, label:'Vendor Contact Details', field: null,            fn: (q) => [q.supplier?.mobile, q.supplier?.email].filter(Boolean).join(' / ') || '—' },
-    { num:18, label:'Position of Vendors',    field: null,            fn: (q) => getPos(q) },
-  ]
+  // For read-only (non-sheet) mode: use saved custom rows or compute from quotation fields
+  const detailRows = (() => {
+    if (cs.detailRowsJson) {
+      try {
+        const saved = JSON.parse(cs.detailRowsJson)
+        return saved.map(r => ({ label: r.label, fn: (q, qi) => r.values?.[qi] ?? '' }))
+      } catch {}
+    }
+    return [
+      { label:'Quotation Received',     fn: (q)    => q.quotationRef || (q.quotationDate ? `Dated ${fmtD(q.quotationDate)}` : 'Email') },
+      { label:'Company / Dealer',       fn: (q)    => `M/s ${q.supplier?.supplierName||'—'}` },
+      { label:'Rates Validity',         fn: (q)    => q.quotationDate ? `Quot. Dt. ${fmtD(q.quotationDate)}` : '—' },
+      { label:'GST',                    fn: (q)    => q.gstPercent ? `${q.gstPercent}% Extra` : '18% Extra' },
+      { label:'Make',                   fn: ()     => items.length ? (items[0].specification || '—') : '—' },
+      { label:'Warranty',               fn: (q)    => q.warranty || '—' },
+      { label:'Payment Terms',          fn: (q)    => q.remarks || '100% on Delivery' },
+      { label:'Freight Charges',        fn: ()     => 'FOR' },
+      { label:'Delivery Time',          fn: (q)    => q.deliveryDays ? `${q.deliveryDays} Days` : '—' },
+      { label:'Vendor Contact Details', fn: (q)    => [q.supplier?.mobile, q.supplier?.email].filter(Boolean).join(' / ') || '—' },
+      { label:'Position of Vendors',    fn: (q)    => getPos(q) },
+    ]
+  })()
 
   const titleItems = items.slice(0,2).map(i=>i.material?.materialName).filter(Boolean).join(', ')
   const titleSite  = [cs.indent?.project?.projectName, cs.indent?.site?.siteName].filter(Boolean).join(', ')
@@ -612,33 +661,49 @@ const ComparativeDetailPage = () => {
                 })}
               </tr>
 
-              {/* Detail rows 8–18 */}
-              {detailRows.map(({ num, label, field, fn }, ri) => (
-                <tr key={num} style={{backgroundColor: ri%2===0 ? '#fafafa' : '#fff'}}>
-                  {isSheet && <td style={td()}></td>}
-                  <td style={td({textAlign:'left', fontWeight:'600'})} colSpan={5}>
-                    {num}.&nbsp;&nbsp;{label}
-                  </td>
-                  {displayQuotes.map((q, qi) => (
-                    <td key={q.id || qi} colSpan={2} style={td({
-                      textAlign: num===18 ? 'center' : 'left',
-                      fontWeight: num===18 ? '700' : '400',
-                      fontSize: '9.5px',
-                      padding: isSheet && field ? '1px 2px' : undefined,
-                    })}>
-                      {isSheet && field
-                        ? <XCell
-                            type={num===11||num===16 ? 'number' : 'text'}
-                            value={q[field]}
-                            onChange={v => updQ(qi, field, v)}
-                            placeholder={label}
-                            style={{textAlign: num===11||num===16 ? 'right' : 'left'}}
-                          />
-                        : fn(q)}
+              {/* Detail rows — dynamic, editable */}
+              {(isSheet ? editDetailRows : detailRows).map((row, ri) => {
+                const isLast = !isSheet && ri === detailRows.length - 1
+                return (
+                  <tr key={ri} className={isSheet ? 'xl-row' : ''} style={{backgroundColor: ri%2===0 ? '#fafafa' : '#fff'}}>
+                    {isSheet && (
+                      <td style={td({width:'24px', padding:'1px 2px'})}>
+                        <button className="xl-del" onClick={()=>delDR(ri)} title="Delete row">×</button>
+                      </td>
+                    )}
+                    <td style={td({textAlign:'left', fontWeight:'600', padding: isSheet ? '1px 2px' : undefined})} colSpan={5}>
+                      {isSheet
+                        ? <XCell value={row.label} onChange={v=>updDR(ri,'label',v)} style={{fontWeight:'600'}} placeholder="Row label"/>
+                        : `${ri+8}.  ${row.label || ''}`}
                     </td>
-                  ))}
+                    {(isSheet ? editQuotes : quotations).map((q, qi) => {
+                      const val = isSheet ? (row.values?.[qi] ?? '') : (row.fn ? row.fn(q, qi) : '')
+                      return (
+                        <td key={q.id || qi} colSpan={2} style={td({
+                          textAlign: isLast ? 'center' : 'left',
+                          fontWeight: isLast ? '700' : '400',
+                          fontSize: '9.5px',
+                          padding: isSheet ? '1px 2px' : undefined,
+                        })}>
+                          {isSheet
+                            ? <XCell value={val} onChange={v=>updDR(ri, qi, v)} placeholder="value"/>
+                            : val}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+              {/* Add detail row button */}
+              {isSheet && (
+                <tr className="xl-add-row no-print">
+                  <td colSpan={6 + quotations.length * 2}>
+                    <button onClick={addDR} style={{fontSize:'10px',color:'#7c3aed',cursor:'pointer',background:'none',border:'none',padding:'2px 4px',display:'flex',alignItems:'center',gap:'3px'}}>
+                      <span style={{fontSize:'16px',lineHeight:1}}>+</span> Add Info Row
+                    </button>
+                  </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
 
