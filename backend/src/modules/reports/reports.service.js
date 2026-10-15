@@ -250,6 +250,19 @@ const getMyPending = async (userId, role) => {
       where: { status: 'DRAFT' }, orderBy: { createdAt: 'desc' }, take: 10, ...nfaSelect,
     });
     if (nfas.length) pending.push({ type: 'nfa', action: 'NFA — GM Signature', path: '/nfa', items: nfas.map(n => ({ id: n.id, label: n.nfaNumber, sub: n.indent?.indentNumber || '', path: `/nfa/${n.id}` })) });
+
+    const returnedNfas = await prisma.nFA.findMany({
+      where: { status: 'RETURNED' }, orderBy: { returnedAt: 'desc' }, take: 10, ...nfaSelect,
+    });
+    if (returnedNfas.length) pending.push({ type: 'nfa', action: 'NFA Returned — Needs Resubmit', path: '/nfa', items: returnedNfas.map(n => ({ id: n.id, label: n.nfaNumber, sub: n.indent?.indentNumber || '', path: `/nfa/${n.id}` })) });
+  }
+
+  if (['GM_PURCHASE', 'ADMIN'].includes(role)) {
+    const purchases = await prisma.purchase.findMany({
+      where: { status: 'PENDING_APPROVAL', deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 10,
+      select: { id: true, billNo: true, createdAt: true, supplier: { select: { supplierName: true } } },
+    });
+    if (purchases.length) pending.push({ type: 'purchase', action: 'PO — GM Purchase Approval', path: '/purchases', items: purchases.map(p => ({ id: p.id, label: p.billNo, sub: p.supplier?.supplierName || '', path: `/purchases/${p.id}` })) });
   }
 
   if (['CFO', 'ADMIN'].includes(role)) {

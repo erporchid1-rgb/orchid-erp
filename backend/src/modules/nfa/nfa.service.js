@@ -1,6 +1,61 @@
 const prisma = require('../../config/database');
 const { getPagination } = require('../../utils/pagination');
 const { generateNFANumber } = require('../../utils/generateNumber');
+const purchasesService = require('../purchases/purchases.service');
+
+const DEFAULT_PO_TC = `1. GST shall be paid extra as applicable.
+2. The above rates are FOR at site including Cartage, Loading etc.
+3. The payment shall be made as per agreed payment terms.
+4. Unloading: The above rates are inclusive of unloading charges.
+5. Test Certificate shall be provided with each consignment.
+6. Material will be got tested if required by the Project-in-charge.
+7. Delivery: Within agreed timeline from the release of Purchase Order.
+8. Important Delivery Note: Deliveries are not accepted on Saturdays & Sundays.`;
+
+// Mirrors the auto-fill CreatePurchasePage.jsx applies when a user manually picks an MD-approved NFA
+const buildPOFromNFA = async (nfa) => {
+  let csItems = [];
+  if (nfa.csId) {
+    const cs = await prisma.comparativeStatement.findUnique({
+      where: { id: nfa.csId },
+      include: { items: { include: { material: true } } },
+    });
+    csItems = cs?.items || [];
+  }
+
+  const poItems = csItems.map((i) => ({
+    materialId: i.materialId,
+    unit: i.unit,
+    quantity: i.qty,
+    rate: i.selectedRate || i.supplier1Rate || 0,
+    gstPercent: nfa.gstPercent ?? 18,
+  }));
+
+  const matNames = csItems.map((i) => i.material?.materialName).filter(Boolean).join(', ');
+  const projName = nfa.indent?.project?.projectName || '';
+  const siteName = nfa.indent?.site?.siteName || '';
+  const notes = matNames
+    ? `Order for Supply of ${matNames} for ${[projName, siteName].filter(Boolean).join(' — ')}`
+    : nfa.natureOfWork || '';
+
+  return {
+    poType: 'PO',
+    status: 'PENDING_APPROVAL',
+    purchaseDate: new Date(),
+    supplierId: nfa.selectedSupplierId,
+    projectId: nfa.indent?.project?.id || null,
+    siteId: nfa.indent?.site?.id || null,
+    indentId: nfa.indentId,
+    nfaId: nfa.id,
+    paymentTerms: nfa.paymentTerms || '',
+    advancePercent: nfa.advancePercent || null,
+    transportCost: 0,
+    discountAmount: 0,
+    termsConditions: DEFAULT_PO_TC,
+    notes,
+    items: poItems,
+  };
+};
 
 const INCLUDE = {
   indent: {
@@ -20,6 +75,7 @@ const INCLUDE = {
   dirSignedBy:       { select: { id: true, name: true } },
   mdApprovedBy:      { select: { id: true, name: true } },
   mdRecordedBy:      { select: { id: true, name: true } },
+  returnedBy:        { select: { id: true, name: true } },
   purchases:         { select: { id: true, billNo: true, status: true, poType: true } },
 };
 
@@ -87,8 +143,9 @@ const uploadDraftPO = async (id, fileName) => {
   return prisma.nFA.update({ where: { id }, data: { draftPOFile: fileName }, include: INCLUDE });
 };
 
-// Generic sign action by any signatory
-const sign = async (id, action, userId, signature) => {
+// Generic action by any signatory — approve advances to the next step;
+// reject/hold pause the NFA at RETURNED until Purchase HOD resubmits it
+const sign = async (id, action, userId, decision = 'approve', notes) => {
   const nfa = await prisma.nFA.findUnique({ where: { id } });
   if (!nfa) throw { status: 404, message: 'NFA not found' };
 
@@ -98,13 +155,50 @@ const sign = async (id, action, userId, signature) => {
     throw { status: 400, message: `NFA must be in ${step.status} status for this action` };
   }
 
+  if (decision === 'approve') {
+    return prisma.nFA.update({
+      where: { id },
+      data: {
+        status: step.nextStatus,
+        [step.field]:     userId,
+        [step.dateField]: new Date(),
+      },
+      include: INCLUDE,
+    });
+  }
+
+  if (!['reject', 'hold'].includes(decision)) throw { status: 400, message: 'Invalid decision' };
+  if (!notes) throw { status: 400, message: 'A reason is required to reject or hold an NFA' };
+
   return prisma.nFA.update({
     where: { id },
     data: {
-      status: step.nextStatus,
-      [step.field]:     userId,
-      [step.dateField]: new Date(),
-      ...(signature && { [step.sigField]: signature }),
+      status: 'RETURNED',
+      returnedFromStatus: step.status,
+      returnAction: decision === 'reject' ? 'REJECTED' : 'HOLD',
+      returnReason: notes,
+      returnedById: userId,
+      returnedAt: new Date(),
+    },
+    include: INCLUDE,
+  });
+};
+
+// Purchase HOD resumes a RETURNED NFA from the exact step it was paused at
+const resubmit = async (id) => {
+  const nfa = await prisma.nFA.findUnique({ where: { id } });
+  if (!nfa) throw { status: 404, message: 'NFA not found' };
+  if (nfa.status !== 'RETURNED') throw { status: 400, message: 'Only a RETURNED NFA can be resubmitted' };
+
+  return prisma.nFA.update({
+    where: { id },
+    data: {
+      status: nfa.returnedFromStatus || 'DRAFT',
+      returnedFromStatus: null,
+      returnAction: null,
+      returnReason: null,
+      returnedById: null,
+      returnedAt: null,
     },
     include: INCLUDE,
   });
@@ -113,42 +207,60 @@ const sign = async (id, action, userId, signature) => {
 // MD final approval / rejection / hold
 // approvalMode: 'DIGITAL' (MD himself) | 'HARD_COPY' (physical sign) | 'PHONE_CALL'
 // recordedByRole: if purchase role is recording on behalf of MD, pass their userId as recordedById
-const mdAction = async (id, action, notes, userId, signature, approvalMode, recordedById) => {
+const mdAction = async (id, action, notes, userId, approvalMode, recordedById) => {
   const nfa = await prisma.nFA.findUnique({ where: { id }, include: { indent: true } });
   if (!nfa) throw { status: 404, message: 'NFA not found' };
   if (nfa.status !== 'DIR_SIGNED') throw { status: 400, message: 'NFA must be DIR_SIGNED for MD action' };
+  if (!['approve', 'reject', 'hold'].includes(action)) throw { status: 400, message: 'Invalid action' };
+  if (action !== 'approve' && !notes) throw { status: 400, message: 'A reason is required to reject or hold an NFA' };
 
-  const statusMap = { approve: 'MD_APPROVED', reject: 'MD_REJECTED', hold: 'MD_HOLD' };
-  if (!statusMap[action]) throw { status: 400, message: 'Invalid action' };
-
-  // When purchase role records on behalf of MD, notes are mandatory
-  if (recordedById && !notes) throw { status: 400, message: 'Notes are required when recording MD decision on their behalf' };
-
-  return prisma.$transaction(async (tx) => {
-    const updated = await tx.nFA.update({
+  if (action !== 'approve') {
+    return prisma.nFA.update({
       where: { id },
       data: {
-        status: statusMap[action],
+        status: 'RETURNED',
+        returnedFromStatus: 'DIR_SIGNED',
+        returnAction: action === 'reject' ? 'REJECTED' : 'HOLD',
+        returnReason: notes,
+        returnedById: recordedById || userId,
+        returnedAt: new Date(),
+        mdApprovalMode: approvalMode || 'DIGITAL',
+        ...(recordedById && { mdRecordedById: recordedById }),
+      },
+      include: INCLUDE,
+    });
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.nFA.update({
+      where: { id },
+      data: {
+        status: 'MD_APPROVED',
         mdApprovedById: userId,
         mdApprovedAt: new Date(),
         mdNotes: notes || null,
         mdApprovalMode: approvalMode || 'DIGITAL',
         ...(recordedById && { mdRecordedById: recordedById }),
-        ...(signature && { mdSignature: signature }),
       },
       include: INCLUDE,
     });
-    if (action === 'approve') {
-      await tx.indent.update({ where: { id: nfa.indentId }, data: { status: 'NFA_APPROVED' } });
-    }
-    return updated;
+    await tx.indent.update({ where: { id: nfa.indentId }, data: { status: 'NFA_APPROVED' } });
+    return result;
   });
+
+  // Auto-create the PO from this NFA — GM Purchase just needs to approve it
+  if (updated.selectedSupplierId) {
+    const poData = await buildPOFromNFA(updated);
+    if (poData.items.length) await purchasesService.create(poData, userId);
+  }
+
+  return updated;
 };
 
 const update = async (id, data) => {
   const nfa = await prisma.nFA.findUnique({ where: { id } });
   if (!nfa) throw { status: 404, message: 'NFA not found' };
-  if (nfa.status !== 'DRAFT') throw { status: 400, message: 'Only DRAFT NFAs can be edited' };
+  if (!['DRAFT', 'RETURNED'].includes(nfa.status)) throw { status: 400, message: 'Only a DRAFT or RETURNED NFA can be edited' };
   const { id: _id, nfaNumber, indentId, csId, createdById, status, ...updateData } = data;
   return prisma.nFA.update({
     where: { id },
@@ -195,4 +307,4 @@ const markLeave = async (id, signatoryKey) => {
   });
 };
 
-module.exports = { getAll, getById, create, update, uploadDraftPO, sign, mdAction, markLeave };
+module.exports = { getAll, getById, create, update, uploadDraftPO, sign, resubmit, mdAction, markLeave };

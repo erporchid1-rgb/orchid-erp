@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 
 const CATEGORIES  = ['Civil', 'MEP', 'HK']
 const DEPARTMENTS = ['Engineering', 'Finance', 'Marketing', 'IT', 'HR', 'Operations']
+const todayStr = new Date().toISOString().split('T')[0]
 
 const EditIndentPage = () => {
   const { id }    = useParams()
@@ -122,7 +123,7 @@ const EditIndentPage = () => {
             </div>
             <div className="form-group">
               <label className="label">Required By Date *</label>
-              <input {...register('requiredDate', { required: 'Required' })} type="date" className="input"/>
+              <input {...register('requiredDate', { required: 'Required' })} type="date" min={todayStr} className="input"/>
               {errors.requiredDate && <p className="error-text">{errors.requiredDate.message}</p>}
             </div>
             <div className="form-group">

@@ -41,9 +41,19 @@ const uploadDraftPO = async (req, res, next) => {
 
 const sign = async (req, res, next) => {
   try {
-    const { action, signature } = req.body;
-    const nfa = await service.sign(req.params.id, action, req.user.id, signature || null);
-    return sendSuccess(res, nfa, 'NFA signed');
+    const { action, decision, notes } = req.body;
+    const nfa = await service.sign(req.params.id, action, req.user.id, decision || 'approve', notes || null);
+    return sendSuccess(res, nfa, 'NFA updated');
+  } catch (err) {
+    if (err.status) return sendError(res, err.message, err.status);
+    next(err);
+  }
+};
+
+const resubmit = async (req, res, next) => {
+  try {
+    const nfa = await service.resubmit(req.params.id);
+    return sendSuccess(res, nfa, 'NFA resubmitted — signing chain resumed');
   } catch (err) {
     if (err.status) return sendError(res, err.message, err.status);
     next(err);
@@ -52,14 +62,14 @@ const sign = async (req, res, next) => {
 
 const mdAction = async (req, res, next) => {
   try {
-    const { action, notes, signature, approvalMode, mdUserId } = req.body;
+    const { action, notes, approvalMode, mdUserId } = req.body;
     const isMD = ['MD', 'ADMIN'].includes(req.user.role);
     // If a purchase role is recording on behalf of MD, mdUserId must be provided
     const effectiveMdUserId = isMD ? req.user.id : (mdUserId || req.user.id);
     const recordedById = isMD ? null : req.user.id;
     const nfa = await service.mdAction(
       req.params.id, action, notes,
-      effectiveMdUserId, signature || null,
+      effectiveMdUserId,
       approvalMode || (isMD ? 'DIGITAL' : null),
       recordedById
     );
@@ -92,4 +102,4 @@ const markLeave = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, create, update, uploadDraftPO, sign, mdAction, markLeave };
+module.exports = { getAll, getById, create, update, uploadDraftPO, sign, resubmit, mdAction, markLeave };

@@ -1,6 +1,70 @@
 const prisma = require('../../config/database');
 const { getPagination } = require('../../utils/pagination');
-const { generateCSNumber } = require('../../utils/generateNumber');
+const { generateCSNumber, generateNFANumber } = require('../../utils/generateNumber');
+
+// Mirrors the signatory set CreateNFAPage.jsx uses for a manually-created NFA
+const DEFAULT_SIGNATORIES = [
+  { key: 'gm',        label: 'HOD — Purchase',      show: true },
+  { key: 'user',      label: 'User Department',      show: true },
+  { key: 'cfo',       label: 'CFO',                  show: true },
+  { key: 'president', label: 'President — Projects', show: true },
+  { key: 'dir',       label: 'Executive Director',   show: true },
+];
+
+// Same auto-fill mapping CreateNFAPage.jsx applies when a user manually picks an approved CS
+const buildNFADataFromCS = (cs) => {
+  const selectedQ = cs.quotations?.find((q) => q.isSelected);
+  const items  = cs.items || [];
+  const indent = cs.indent || {};
+
+  const matNames = items.map((i) => i.material?.materialName).filter(Boolean);
+  const natureOfWork = matNames.length
+    ? `Supply of ${matNames.join(', ')} for ${indent.project?.projectName || ''} — ${indent.site?.siteName || ''}`
+    : '';
+
+  const itemDescription = items
+    .map((i, idx) => {
+      const rate = i.selectedRate || i.supplier1Rate || '';
+      const rateStr = rate ? ` @ ₹${rate}/${i.unit}` : '';
+      const spec = i.specification ? ` (${i.specification})` : '';
+      return `${idx + 1}. ${i.material?.materialName}${spec} — Qty: ${i.qty} ${i.unit}${rateStr}`;
+    })
+    .join('\n');
+
+  const specs = items.map((i) => i.specification).filter(Boolean);
+  const productDescription = specs.length ? specs.join(', ') : matNames.join(', ');
+
+  const warrantyStr  = selectedQ?.warranty     ? `Warranty: ${selectedQ.warranty}`        : '';
+  const deliveryStr  = selectedQ?.deliveryDays ? `Delivery: ${selectedQ.deliveryDays} days` : '';
+  const paymentTerms = [warrantyStr, deliveryStr].filter(Boolean).join(' | ');
+
+  const gstPercent  = selectedQ?.gstPercent != null ? selectedQ.gstPercent : 18;
+  const baseAmount  = selectedQ?.totalAmount || 0;
+  const gstAmount   = parseFloat((baseAmount * gstPercent / 100).toFixed(2));
+  const totalAmount = parseFloat((baseAmount + gstAmount).toFixed(2));
+
+  return {
+    indentId: indent.id,
+    csId: cs.id,
+    selectedSupplierId: selectedQ?.supplierId || null,
+    memoType: 'PO_MEMO',
+    areaOfUse: indent.department || null,
+    natureOfWork,
+    productDescription,
+    itemDescription,
+    baseAmount,
+    cartage: 'FOR',
+    gstPercent,
+    gstAmount,
+    totalAmount,
+    paymentTerms,
+    modeOfPayment: 'ONLINE',
+    quotationDate:   selectedQ?.quotationDate || null,
+    comparativeDate: cs.createdAt || null,
+    notes: selectedQ?.remarks || null,
+    signatories: JSON.stringify(DEFAULT_SIGNATORIES),
+  };
+};
 
 const INCLUDE = {
   indent: {
@@ -194,17 +258,34 @@ const presidentVerify = async (id, userId, notes, supplierId) => {
   const effectiveSupplierId = supplierId || cs.selectedSupplierId;
   if (!effectiveSupplierId) throw { status: 400, message: 'Supplier must be selected before final verification' };
 
-  await prisma.comparativeStatement.update({
-    where: { id },
-    data: {
-      status: 'FINAL_VERIFIED',
-      presidentVerifiedById: userId,
-      presidentVerifiedAt: new Date(),
-      presidentNotes: notes || null,
-      selectedSupplierId: effectiveSupplierId,
-    },
+  const nfaNumber = await generateNFANumber();
+
+  await prisma.$transaction(async (tx) => {
+    const verifiedCS = await tx.comparativeStatement.update({
+      where: { id },
+      data: {
+        status: 'FINAL_VERIFIED',
+        presidentVerifiedById: userId,
+        presidentVerifiedAt: new Date(),
+        presidentNotes: notes || null,
+        selectedSupplierId: effectiveSupplierId,
+      },
+      include: INCLUDE,
+    });
+
+    const nfaData = buildNFADataFromCS(verifiedCS);
+    await tx.nFA.create({
+      data: {
+        ...nfaData,
+        nfaNumber,
+        createdById: userId,
+        status: 'DRAFT',
+      },
+    });
+
+    await tx.indent.update({ where: { id: cs.indentId }, data: { status: 'NFA' } });
   });
-  await prisma.indent.update({ where: { id: cs.indentId }, data: { status: 'NFA' } });
+
   return prisma.comparativeStatement.findUnique({ where: { id }, include: INCLUDE });
 };
 

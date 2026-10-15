@@ -71,8 +71,9 @@ export const nfaService = {
   update: (id, data) => api.put(`/nfa/${id}`, data),
   uploadDraftPO: (id, formData) =>
     api.post(`/nfa/${id}/upload-draft-po`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  sign: (id, action, signature) => api.patch(`/nfa/${id}/sign`, { action, signature }),
-  mdAction: (id, action, notes, signature) => api.patch(`/nfa/${id}/md-action`, { action, notes, signature, approvalMode: 'DIGITAL' }),
+  sign: (id, action, decision = 'approve', notes) => api.patch(`/nfa/${id}/sign`, { action, decision, notes }),
+  resubmit: (id) => api.patch(`/nfa/${id}/resubmit`),
+  mdAction: (id, action, notes) => api.patch(`/nfa/${id}/md-action`, { action, notes, approvalMode: 'DIGITAL' }),
   mdRecordAction: (id, action, notes, approvalMode) => api.patch(`/nfa/${id}/md-action`, { action, notes, approvalMode }),
   markLeave: (id, signatoryKey) => api.patch(`/nfa/${id}/mark-leave`, { signatoryKey }),
 }

@@ -10,6 +10,8 @@ const fmtAmt = (v) =>
     ? new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)
     : '—'
 
+const todayStr = new Date().toISOString().split('T')[0]
+
 const COL = [
   { head: 'text-blue-600',  lborder: 'border-l-4 border-l-blue-400' },
   { head: 'text-green-600', lborder: 'border-l-4 border-l-green-400' },
@@ -210,7 +212,7 @@ const EditComparativePage = () => {
                   </div>
                   <div className="form-group">
                     <label className="label text-xs">Quotation Date</label>
-                    <input {...register(`quotations.${qi}.quotationDate`)} type="date" className="input py-1.5 text-sm"/>
+                    <input {...register(`quotations.${qi}.quotationDate`)} type="date" min={todayStr} className="input py-1.5 text-sm"/>
                   </div>
                   <div className="form-group">
                     <label className="label text-xs">Total Quoted Amount (₹)</label>

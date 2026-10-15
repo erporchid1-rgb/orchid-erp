@@ -72,7 +72,7 @@ const PurchaseDetailPage = () => {
   const [acting,   setActing]   = useState(false)
   const [approvalNotes, setApprovalNotes] = useState('')
 
-  const isAdmin       = ['ADMIN', 'PURCHASE_HOD', 'GM_PURCHASE', 'MD', 'EXE_DIRECTOR'].includes(user?.role)
+  const canApprovePO  = ['ADMIN', 'GM_PURCHASE'].includes(user?.role)
   const isPurchaseHOD = ['PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'].includes(user?.role)
 
   const load = () => {
@@ -156,7 +156,7 @@ const PurchaseDetailPage = () => {
                 <Send size={14} /> Submit for Approval
               </button>
             )}
-            {purchase.status === 'PENDING_APPROVAL' && isAdmin && (
+            {purchase.status === 'PENDING_APPROVAL' && canApprovePO && (
               <>
                 <button onClick={() => act(() => purchasesService.approve(id, approvalNotes), 'Purchase approved')}
                   disabled={acting} className="flex items-center gap-1 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">
@@ -170,7 +170,7 @@ const PurchaseDetailPage = () => {
                 </button>
               </>
             )}
-            {purchase.status === 'PENDING_APPROVAL' && isAdmin && (
+            {purchase.status === 'PENDING_APPROVAL' && canApprovePO && (
               <textarea value={approvalNotes} onChange={e => setApprovalNotes(e.target.value)}
                 className="input text-sm" rows={1} placeholder="Notes (required for rejection)..." />
             )}

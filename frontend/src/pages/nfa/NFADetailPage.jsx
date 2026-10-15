@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { nfaService } from '../../services'
 import { useAuth } from '../../context/AuthContext'
-import { ArrowLeft, Printer, PenLine, CheckCircle, XCircle, PauseCircle, FileCheck, Phone, FileSignature, MessageSquare, Plane, Save } from 'lucide-react'
+import { ArrowLeft, Printer, CheckCircle, XCircle, PauseCircle, FileCheck, Phone, FileSignature, MessageSquare, Plane, Save, RotateCcw, AlertTriangle } from 'lucide-react'
 import { DEFAULT_SIGNATORIES } from './CreateNFAPage'
 import toast from 'react-hot-toast'
-import SignatureModal from '../../components/ui/SignatureModal'
 import { suppliersService } from '../../services'
 
 /* Inline editable cell for NFA sheet mode */
@@ -139,26 +138,33 @@ const STATUS_BADGE = {
   PRESIDENT_SIGNED: 'badge badge-blue',
   DIR_SIGNED:       'badge badge-yellow',
   MD_APPROVED:      'badge badge-green',
-  MD_REJECTED:      'badge badge-red',
-  MD_HOLD:          'badge badge-orange',
+  RETURNED:         'badge badge-red',
 }
 
 const STATUS_LABEL = {
   DRAFT:            'Draft',
-  GM_SIGNED:        'GM Signed',
-  USER_SIGNED:      'User Dept Signed',
-  CFO_SIGNED:       'CFO Signed',
-  PRESIDENT_SIGNED: 'President Signed',
-  DIR_SIGNED:       'Exe. Director Signed',
+  GM_SIGNED:        'GM Approved',
+  USER_SIGNED:      'User Dept Approved',
+  CFO_SIGNED:       'CFO Approved',
+  PRESIDENT_SIGNED: 'President Approved',
+  DIR_SIGNED:       'Exe. Director Approved',
   MD_APPROVED:      'MD Approved',
-  MD_REJECTED:      'MD Rejected',
-  MD_HOLD:          'MD Hold',
+  RETURNED:         'Returned',
 }
 
 const fmt = (date) => {
   if (!date) return '—'
   const d = new Date(date)
   return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`
+}
+
+// Date + time — used for actual approval/action timestamps (signing trail, return banner)
+const fmtDT = (date) => {
+  if (!date) return '—'
+  const d = new Date(date)
+  const datePart = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`
+  const timePart = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+  return `${datePart}, ${timePart}`
 }
 
 const fmtAmt = (val) =>
@@ -179,9 +185,6 @@ const NFADetailPage = () => {
   const [editNFA, setEditNFA] = useState({})
   const [isDirty, setIsDirty] = useState(false)
   const [suppliers, setSuppliers] = useState([])
-
-  // Signature modal state
-  const [sigModal, setSigModal] = useState({ open: false, title: '', onConfirm: null })
 
   const isMD          = ['MD', 'ADMIN'].includes(user?.role)
   const isPurchaseHOD = ['PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'].includes(user?.role)
@@ -218,7 +221,7 @@ const NFADetailPage = () => {
   // Init edit state when NFA loads in DRAFT
   useEffect(() => {
     if (!nfa) return
-    if (!isPurchaseHOD || nfa.status !== 'DRAFT') return
+    if (!isPurchaseHOD || !['DRAFT', 'RETURNED'].includes(nfa.status)) return
     setEditNFA({
       memoType:           nfa.memoType           || 'PO_MEMO',
       make:               nfa.make               || '',
@@ -296,31 +299,29 @@ const NFADetailPage = () => {
     )
   }
 
-  const openSignModal = () => {
-    setSigModal({
-      open: true,
-      title: `Sign as ${signLabel}`,
-      onConfirm: (sigData) => {
-        setSigModal(s => ({ ...s, open: false }))
-        doAction(() => nfaService.sign(id, signAction, sigData), 'NFA signed successfully')
-      },
-    })
+  const handleSignDecision = (decision) => {
+    if (decision === 'approve') {
+      doAction(() => nfaService.sign(id, signAction, 'approve'), `Approved as ${signLabel}`)
+      return
+    }
+    const notes = window.prompt(`${decision === 'reject' ? 'Rejection' : 'Hold'} reason:`)
+    if (!notes) return
+    doAction(() => nfaService.sign(id, signAction, decision, notes), `NFA ${decision === 'reject' ? 'rejected' : 'put on hold'}`)
   }
 
-  const openMdModal = (action) => {
-    const notes = action !== 'approve' ? window.prompt(`${action === 'reject' ? 'Rejection' : 'Hold'} reason:`) : ''
-    if (action !== 'approve' && notes === null) return
-    setSigModal({
-      open: true,
-      title: `MD Signature — ${action.charAt(0).toUpperCase() + action.slice(1)}`,
-      onConfirm: (sigData) => {
-        setSigModal(s => ({ ...s, open: false }))
-        doAction(
-          () => nfaService.mdAction(id, action, notes, sigData),
-          `NFA ${action}d by MD`
-        )
-      },
-    })
+  const handleMdDecision = (action) => {
+    if (action === 'approve') {
+      doAction(() => nfaService.mdAction(id, 'approve', ''), 'NFA approved by MD')
+      return
+    }
+    const notes = window.prompt(`${action === 'reject' ? 'Rejection' : 'Hold'} reason:`)
+    if (!notes) return
+    doAction(() => nfaService.mdAction(id, action, notes), `NFA ${action}d by MD`)
+  }
+
+  const handleResubmit = () => {
+    if (!window.confirm('Resubmit this NFA? It will resume the signing chain from where it was returned.')) return
+    doAction(() => nfaService.resubmit(id), 'NFA resubmitted — signing chain resumed')
   }
 
   if (loading) return (
@@ -330,7 +331,7 @@ const NFADetailPage = () => {
   )
   if (!nfa) return <div className="text-center py-20 text-gray-500">NFA not found</div>
 
-  const isNFASheet = isPurchaseHOD && nfa.status === 'DRAFT'
+  const isNFASheet = isPurchaseHOD && ['DRAFT', 'RETURNED'].includes(nfa.status)
 
   const projectSite = [
     nfa.indent?.project?.projectName,
@@ -395,7 +396,12 @@ const NFADetailPage = () => {
       <div style={{ borderTop: '1px solid #333', paddingTop: '5px' }}>
         <div style={{ fontWeight: '600', fontSize: '13px' }}>{name || '................................'}</div>
         <div style={{ fontSize: '12px', color: '#555' }}>{role}</div>
-        {date && <div style={{ fontSize: '11px', color: '#777', marginTop: '2px' }}>{fmt(date)}</div>}
+        {date && (
+          <div style={{ fontSize: '11px', color: '#16a34a', fontWeight: '600', marginTop: '3px' }}>
+            ✓ Approved
+          </div>
+        )}
+        {date && <div style={{ fontSize: '11px', color: '#777', marginTop: '1px' }}>{fmtDT(date)}</div>}
       </div>
     </div>
   )
@@ -433,15 +439,6 @@ const NFADetailPage = () => {
         .xl-row:hover { background: rgba(66,133,244,0.04); cursor: cell; }
       `}</style>
 
-      {/* Signature Modal */}
-      <SignatureModal
-        open={sigModal.open}
-        title={sigModal.title}
-        loading={actionLoading}
-        onConfirm={sigModal.onConfirm}
-        onClose={() => setSigModal(s => ({ ...s, open: false }))}
-      />
-
       {/* ── Screen-only header ── */}
       <div className="no-print">
         <div className="page-header">
@@ -467,7 +464,7 @@ const NFADetailPage = () => {
               <button
                 onClick={() => {
                   if (!window.confirm('Submit this NFA for approval? It will be locked for editing and move to the next signing stage.')) return
-                  doAction(() => nfaService.sign(id, 'gm_sign', null), 'NFA submitted for approval')
+                  doAction(() => nfaService.sign(id, 'gm_sign', 'approve'), 'NFA submitted for approval')
                 }}
                 disabled={actionLoading || isDirty}
                 title={isDirty ? 'Save changes before submitting' : ''}
@@ -477,38 +474,64 @@ const NFADetailPage = () => {
               </button>
             )}
             {canSign() && (
-              <button
-                onClick={openSignModal}
-                disabled={actionLoading}
-                className="btn-primary flex items-center gap-2"
-              >
-                <PenLine size={15} /> Sign as {signLabel}
-              </button>
-            )}
-            {isMD && nfa.status === 'DIR_SIGNED' && (
               <>
                 <button
-                  onClick={() => openMdModal('approve')}
+                  onClick={() => handleSignDecision('approve')}
                   disabled={actionLoading}
                   className="flex items-center gap-1 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
                 >
-                  <CheckCircle size={14} /> Approve
+                  <CheckCircle size={14} /> Approve as {signLabel}
                 </button>
                 <button
-                  onClick={() => openMdModal('reject')}
+                  onClick={() => handleSignDecision('reject')}
                   disabled={actionLoading}
                   className="flex items-center gap-1 px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
                 >
                   <XCircle size={14} /> Reject
                 </button>
                 <button
-                  onClick={() => openMdModal('hold')}
+                  onClick={() => handleSignDecision('hold')}
                   disabled={actionLoading}
                   className="flex items-center gap-1 px-3 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
                 >
                   <PauseCircle size={14} /> Hold
                 </button>
               </>
+            )}
+            {isMD && nfa.status === 'DIR_SIGNED' && (
+              <>
+                <button
+                  onClick={() => handleMdDecision('approve')}
+                  disabled={actionLoading}
+                  className="flex items-center gap-1 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  <CheckCircle size={14} /> Approve
+                </button>
+                <button
+                  onClick={() => handleMdDecision('reject')}
+                  disabled={actionLoading}
+                  className="flex items-center gap-1 px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+                >
+                  <XCircle size={14} /> Reject
+                </button>
+                <button
+                  onClick={() => handleMdDecision('hold')}
+                  disabled={actionLoading}
+                  className="flex items-center gap-1 px-3 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                >
+                  <PauseCircle size={14} /> Hold
+                </button>
+              </>
+            )}
+            {nfa.status === 'RETURNED' && isPurchaseHOD && (
+              <button
+                onClick={handleResubmit}
+                disabled={actionLoading || isDirty}
+                title={isDirty ? 'Save changes before resubmitting' : ''}
+                className="btn-primary flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+              >
+                <RotateCcw size={15} /> Resubmit
+              </button>
             )}
             {isNFASheet && isDirty && (
               <button onClick={saveNFA} disabled={saving} className="btn-primary flex items-center gap-2">
@@ -528,6 +551,25 @@ const NFADetailPage = () => {
             </button>
           </div>
         </div>
+
+        {/* Returned banner */}
+        {nfa.status === 'RETURNED' && (
+          <div className="card mb-5 border-2 border-red-200 bg-red-50">
+            <div className="card-body flex items-start gap-3">
+              <AlertTriangle size={18} className="text-red-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-bold text-red-800 text-sm">
+                  {nfa.returnAction === 'REJECTED' ? 'Rejected' : 'On Hold'} by {nfa.returnedBy?.name || '—'}
+                  {nfa.returnedAt && <span className="font-normal text-red-500"> · {fmtDT(nfa.returnedAt)}</span>}
+                </p>
+                <p className="text-sm text-red-700 mt-1">{nfa.returnReason}</p>
+                {isPurchaseHOD && (
+                  <p className="text-xs text-red-500 mt-2">Edit the fields below if needed, then click Resubmit to resume the signing chain.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Signing progress timeline */}
         <div className="card mb-5">
@@ -555,7 +597,7 @@ const NFADetailPage = () => {
                         <p className={`text-xs font-medium ${done ? 'text-green-700' : onLeave ? 'text-amber-600' : 'text-gray-400'}`}>{step.label}</p>
                         {onLeave && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">ON LEAVE</span>}
                         {step.who && <p className="text-xs text-gray-500">{step.who.name}</p>}
-                        {step.at  && <p className="text-xs text-gray-400">{fmt(step.at)}</p>}
+                        {step.at  && <p className="text-xs text-gray-400">{fmtDT(step.at)}</p>}
                         {modeLabel && <p className="text-xs text-amber-600 font-medium mt-0.5">{modeLabel}</p>}
                         {nfa.mdRecordedBy && isMdStep && (
                           <p className="text-xs text-gray-400">via {nfa.mdRecordedBy.name}</p>

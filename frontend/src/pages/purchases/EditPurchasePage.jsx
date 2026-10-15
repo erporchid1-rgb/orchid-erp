@@ -8,6 +8,8 @@ import { formatCurrency } from '../../utils/helpers'
 import { Plus, Trash2, ArrowLeft, ShoppingCart } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+const todayStr = new Date().toISOString().split('T')[0]
+
 const fmtD = (date) => {
   if (!date) return ''
   const d = new Date(date)
@@ -197,7 +199,7 @@ const EditPurchasePage = () => {
             </div>
             <div className="form-group">
               <label className="label">Expected Delivery Date</label>
-              <input {...register('deliveryDate')} type="date" className="input"/>
+              <input {...register('deliveryDate')} type="date" min={todayStr} className="input"/>
             </div>
             <div className="form-group">
               <label className="label">Project</label>

@@ -10,6 +10,8 @@ const fmtAmt = (v) =>
     ? new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)
     : '—'
 
+const todayStr = new Date().toISOString().split('T')[0]
+
 const COL = [
   { head: 'text-blue-600',  rate: 'border-b-blue-400',  amt: 'text-blue-700',  lborder: 'border-l-4 border-l-blue-400' },
   { head: 'text-green-600', rate: 'border-b-green-400', amt: 'text-green-700', lborder: 'border-l-4 border-l-green-400' },
@@ -183,7 +185,9 @@ const CreateComparativePage = () => {
                       <input {...register(`quotations.${idx}.quotationRef`)} className="input py-1.5 w-28" placeholder="Q-001" />
                     </td>
                     <td className="px-3 py-2">
-                      <input {...register(`quotations.${idx}.quotationDate`)} type="date" className="input py-1.5" />
+                      <input {...register(`quotations.${idx}.quotationDate`, {
+                        validate: v => !v || v >= todayStr || 'Cannot be a past date',
+                      })} type="date" min={todayStr} className="input py-1.5" />
                     </td>
                     <td className="px-3 py-2">
                       <input {...register(`quotations.${idx}.totalAmount`)} type="number" step="0.01" className="input py-1.5 w-28" placeholder="0.00" />

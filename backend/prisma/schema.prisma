@@ -52,6 +52,7 @@ model User {
   nfaDirSigned       NFA[] @relation("NFADirSignedBy")
   nfaMdApproved      NFA[] @relation("NFAMdApprovedBy")
   nfaMdRecorded      NFA[] @relation("NFAMdRecordedBy")
+  nfaReturnedBy      NFA[] @relation("NFAReturnedBy")
 
   mrnCreated          MRN[] @relation("MRNCreatedBy")
   mrnStoreVerified    MRN[] @relation("MRNStoreVerifiedBy")
@@ -424,6 +425,13 @@ model NFA {
   mdApprovalMode      String?   // DIGITAL | HARD_COPY | PHONE_CALL
   mdRecordedById      String?   // purchase role who recorded physical/call approval
 
+  // Set when any signatory (incl. MD) rejects or holds — pauses the chain until Purchase HOD resubmits
+  returnedFromStatus String?   // status to restore on resubmit (whose turn it was)
+  returnAction       String?   // REJECTED | HOLD
+  returnReason       String?
+  returnedById       String?
+  returnedAt         DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -438,6 +446,7 @@ model NFA {
   dirSignedBy        User?                 @relation("NFADirSignedBy", fields: [dirSignedById], references: [id])
   mdApprovedBy       User?                 @relation("NFAMdApprovedBy", fields: [mdApprovedById], references: [id])
   mdRecordedBy       User?                 @relation("NFAMdRecordedBy", fields: [mdRecordedById], references: [id])
+  returnedBy         User?                 @relation("NFAReturnedBy", fields: [returnedById], references: [id])
   purchases          Purchase[]
 
   @@map("nfas")

@@ -75,6 +75,8 @@ const create = async (data, userId) => {
   return prisma.indent.create({
     data: {
       ...indentData,
+      projectId: indentData.projectId || null,
+      siteId:    indentData.siteId    || null,
       indentNumber,
       requestedById: userId,
       status: 'DRAFT',

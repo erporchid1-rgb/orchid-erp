@@ -37,9 +37,10 @@ const allowedOrigins = [
   'https://orchiderp.netlify.app',
   ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) : []),
 ].filter(Boolean);
+const allowedOriginPattern = /^https:\/\/[a-z0-9-]+\.ngrok-free\.(app|dev)$|^https:\/\/[a-z0-9-]+\.ngrok\.(io|app)$/i;
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin || allowedOrigins.includes(origin) || allowedOriginPattern.test(origin)) return callback(null, true);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,

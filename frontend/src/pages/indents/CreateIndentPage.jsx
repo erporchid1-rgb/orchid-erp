@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 
 const CATEGORIES = ['Civil', 'MEP', 'HK']
 const DEPARTMENTS = ['Engineering', 'Finance', 'Marketing', 'IT', 'HR', 'Operations']
+const todayStr = new Date().toISOString().split('T')[0]
 
 const CreateIndentPage = () => {
   const navigate = useNavigate()
@@ -93,7 +94,10 @@ const CreateIndentPage = () => {
             </div>
             <div className="form-group">
               <label className="label">Required By Date *</label>
-              <input {...register('requiredDate', { required: 'Required' })} type="date" className="input" />
+              <input {...register('requiredDate', {
+                required: 'Required',
+                validate: v => v >= todayStr || 'Required By Date cannot be in the past',
+              })} type="date" min={todayStr} className="input" />
               {errors.requiredDate && <p className="error-text">{errors.requiredDate.message}</p>}
             </div>
 

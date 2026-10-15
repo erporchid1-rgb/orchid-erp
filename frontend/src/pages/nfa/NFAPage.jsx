@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { nfaService } from '../../services'
 import { formatDate, formatCurrency } from '../../utils/helpers'
 import { useAuth } from '../../context/AuthContext'
-import { FileCheck, Plus, Eye, PenLine, CheckCircle, XCircle, PauseCircle } from 'lucide-react'
+import { FileCheck, Plus, Eye, CheckCircle, XCircle, PauseCircle, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const STATUS_BADGE = {
@@ -14,15 +14,14 @@ const STATUS_BADGE = {
   PRESIDENT_SIGNED:  'badge badge-blue',
   DIR_SIGNED:        'badge badge-yellow',
   MD_APPROVED:       'badge badge-green',
-  MD_REJECTED:       'badge badge-red',
-  MD_HOLD:           'badge badge-orange',
+  RETURNED:          'badge badge-red',
 }
 
 const STATUS_LABEL = {
-  DRAFT: 'Draft', GM_SIGNED: 'GM Signed', USER_SIGNED: 'User Dept Signed',
-  CFO_SIGNED: 'CFO Signed', PRESIDENT_SIGNED: 'President Signed',
-  DIR_SIGNED: 'Exe. Director Signed', MD_APPROVED: 'MD Approved',
-  MD_REJECTED: 'MD Rejected', MD_HOLD: 'MD Hold',
+  DRAFT: 'Draft', GM_SIGNED: 'GM Approved', USER_SIGNED: 'User Dept Approved',
+  CFO_SIGNED: 'CFO Approved', PRESIDENT_SIGNED: 'President Approved',
+  DIR_SIGNED: 'Exe. Director Approved', MD_APPROVED: 'MD Approved',
+  RETURNED: 'Returned',
 }
 
 const NFAPage = () => {
@@ -121,8 +120,9 @@ const NFAPage = () => {
                       {/* Signing progress dots */}
                       <div className="flex gap-1">
                         {['GM_SIGNED','USER_SIGNED','CFO_SIGNED','PRESIDENT_SIGNED','DIR_SIGNED','MD_APPROVED'].map((step) => {
-                          const order = ['DRAFT','GM_SIGNED','USER_SIGNED','CFO_SIGNED','PRESIDENT_SIGNED','DIR_SIGNED','MD_APPROVED','MD_REJECTED']
-                          const current = order.indexOf(nfa.status)
+                          const order = ['DRAFT','GM_SIGNED','USER_SIGNED','CFO_SIGNED','PRESIDENT_SIGNED','DIR_SIGNED','MD_APPROVED']
+                          const effectiveStatus = nfa.status === 'RETURNED' ? nfa.returnedFromStatus : nfa.status
+                          const current = order.indexOf(effectiveStatus)
                           const stepIdx = order.indexOf(step)
                           return (
                             <div
@@ -141,21 +141,28 @@ const NFAPage = () => {
                           <Eye size={14} />
                         </Link>
                         {canSign(nfa) && (
-                          <button
-                            onClick={() => { setActionLoading(nfa.id); doAction(() => nfaService.sign(nfa.id, signAction), 'NFA signed') }}
-                            disabled={!!actionLoading}
-                            className="p-1.5 rounded text-blue-600 hover:bg-blue-50" title="Sign NFA"
-                          ><PenLine size={14} /></button>
+                          <>
+                            <button onClick={() => { setActionLoading(nfa.id + '_approve'); doAction(() => nfaService.sign(nfa.id, signAction, 'approve'), 'NFA approved') }} disabled={!!actionLoading}
+                              className="p-1.5 rounded text-green-600 hover:bg-green-50" title="Approve"><CheckCircle size={14} /></button>
+                            <button onClick={() => { const n = window.prompt('Reason:'); if (n) { setActionLoading(nfa.id + '_reject'); doAction(() => nfaService.sign(nfa.id, signAction, 'reject', n), 'NFA rejected') } }} disabled={!!actionLoading}
+                              className="p-1.5 rounded text-red-600 hover:bg-red-50" title="Reject"><XCircle size={14} /></button>
+                            <button onClick={() => { const n = window.prompt('Hold reason:'); if (n) { setActionLoading(nfa.id + '_hold'); doAction(() => nfaService.sign(nfa.id, signAction, 'hold', n), 'NFA on hold') } }} disabled={!!actionLoading}
+                              className="p-1.5 rounded text-orange-500 hover:bg-orange-50" title="Hold"><PauseCircle size={14} /></button>
+                          </>
                         )}
                         {isMD && nfa.status === 'DIR_SIGNED' && (
                           <>
                             <button onClick={() => { setActionLoading(nfa.id + '_approve'); doAction(() => nfaService.mdAction(nfa.id, 'approve', ''), 'NFA approved by MD') }} disabled={!!actionLoading}
                               className="p-1.5 rounded text-green-600 hover:bg-green-50" title="MD Approve"><CheckCircle size={14} /></button>
-                            <button onClick={() => { const n = window.prompt('Reason:'); if (n !== null) { setActionLoading(nfa.id + '_reject'); doAction(() => nfaService.mdAction(nfa.id, 'reject', n), 'NFA rejected by MD') } }} disabled={!!actionLoading}
+                            <button onClick={() => { const n = window.prompt('Reason:'); if (n) { setActionLoading(nfa.id + '_reject'); doAction(() => nfaService.mdAction(nfa.id, 'reject', n), 'NFA rejected by MD') } }} disabled={!!actionLoading}
                               className="p-1.5 rounded text-red-600 hover:bg-red-50" title="MD Reject"><XCircle size={14} /></button>
-                            <button onClick={() => { const n = window.prompt('Hold reason:'); if (n !== null) { setActionLoading(nfa.id + '_hold'); doAction(() => nfaService.mdAction(nfa.id, 'hold', n), 'NFA on hold') } }} disabled={!!actionLoading}
+                            <button onClick={() => { const n = window.prompt('Hold reason:'); if (n) { setActionLoading(nfa.id + '_hold'); doAction(() => nfaService.mdAction(nfa.id, 'hold', n), 'NFA on hold') } }} disabled={!!actionLoading}
                               className="p-1.5 rounded text-orange-500 hover:bg-orange-50" title="MD Hold"><PauseCircle size={14} /></button>
                           </>
+                        )}
+                        {nfa.status === 'RETURNED' && isPurchaseHOD && (
+                          <button onClick={() => { setActionLoading(nfa.id + '_resubmit'); doAction(() => nfaService.resubmit(nfa.id), 'NFA resubmitted') }} disabled={!!actionLoading}
+                            className="p-1.5 rounded text-blue-600 hover:bg-blue-50" title="Resubmit"><RotateCcw size={14} /></button>
                         )}
                         {nfa.status === 'MD_APPROVED' && isPurchaseHOD && (
                           <Link to={`/purchases/new?nfaId=${nfa.id}&indentId=${nfa.indentId}`}

@@ -10,6 +10,7 @@ import { Plus, Trash2, ArrowLeft, ShoppingCart, FileCheck, Building2, MapPin, Pa
 import toast from 'react-hot-toast'
 
 const fmtAmt = (v) => v != null ? new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(v) : '0'
+const todayStr = new Date().toISOString().split('T')[0]
 
 // Step 1 — pick from MD_APPROVED NFAs
 const NFAPickerStep = ({ onSelect }) => {
@@ -331,7 +332,10 @@ const CreatePurchasePage = () => {
             </div>
             <div className="form-group">
               <label className="label">Expected Delivery Date</label>
-              <input {...register('deliveryDate')} type="date" className="input" />
+              <input {...register('deliveryDate', {
+                validate: v => !v || v >= todayStr || 'Expected Delivery Date cannot be in the past',
+              })} type="date" min={todayStr} className="input" />
+              {errors.deliveryDate && <p className="error-text">{errors.deliveryDate.message}</p>}
             </div>
             <div className="form-group">
               <label className="label">Project</label>

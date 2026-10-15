@@ -28,12 +28,18 @@ router.post('/:id/upload-draft-po',
   ctrl.uploadDraftPO
 );
 
-// Signing endpoints — each role signs in order
-// body: { action: 'gm_sign' | 'user_sign' | 'cfo_sign' | 'president_sign' | 'dir_sign' }
-// PURCHASE_HOD can call gm_sign to "submit for approval" (advances without GM signature)
+// Signing endpoints — each role approves/rejects/holds in order
+// body: { action: 'gm_sign' | 'user_sign' | 'cfo_sign' | 'president_sign' | 'dir_sign', decision: 'approve'|'reject'|'hold', notes? }
+// PURCHASE_HOD can call gm_sign/approve to "submit for approval" (advances without a separate approval step)
 router.patch('/:id/sign',
   requireRole('PURCHASE_HOD', 'GM_PURCHASE', 'USER_HOD', 'CFO', 'PRESIDENT_PROJECTS', 'EXE_DIRECTOR', 'ADMIN'),
   ctrl.sign
+);
+
+// Purchase HOD resumes a RETURNED (rejected/held) NFA from where it was paused
+router.patch('/:id/resubmit',
+  requireRole('PURCHASE_HOD', 'GM_PURCHASE', 'ADMIN'),
+  ctrl.resubmit
 );
 
 // Mark a signatory as on leave — Purchase HOD skips that step
